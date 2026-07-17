@@ -20,6 +20,7 @@ Reach for a pattern when the pain exists, not preemptively — a game jam protot
 - Same-object or parent-child: plain C# `event Action<...>` (unsubscribe in `OnDisable`).
 - Cross-scene / cross-prefab (score changed, player died, wave started): **ScriptableObject event channels** — an SO asset with `Raise()`/`Subscribe()`; emitters and listeners reference the asset, never each other. Designer-wireable, testable, no scene coupling.
 - ScriptableObjects also hold shared data (enemy stats, item defs, level configs): edit without touching scenes, reference from prefabs safely.
+- **Juice/presentation as event subscribers**: gameplay logic raises domain events (`AteFood`, `Died(newBest)`, `Restarted`); FX, audio, and HUD live in separate sibling components that subscribe in `OnEnable`. Logic stays pure and unit-testable (tests instantiate it with zero subscribers — `?.Invoke` makes that free), each juice layer can be added/removed without touching gameplay, and the read-only state surface (`public int Score => score;`) doubles as the HUD's and the playtest skill's probe API.
 
 ## Save system
 - Serialize plain C# data classes (`[Serializable]`, no UnityEngine.Object fields) to JSON at `Application.persistentDataPath`. Never serialize MonoBehaviours/GameObjects directly.
