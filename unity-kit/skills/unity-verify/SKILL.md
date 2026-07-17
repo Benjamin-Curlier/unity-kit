@@ -18,7 +18,7 @@ Requires the Unity editor running with MCP for Unity connected (`unityMCP` serve
 
 1. Activate the testing tools once per session: `manage_tools` with `action: "activate"`, group `testing`.
 2. `run_tests` with `mode: "EditMode"` for pure-logic changes; `mode: "PlayMode"` for GameObject lifecycle, physics, scenes, or input. It returns a `job_id` — poll `get_test_job` (use `wait_timeout` of 30–60s; PlayMode runs need generous timeouts, and an unfocused editor can stall — the tool nudges focus automatically, just be patient before declaring a hang).
-3. If no test covers a bug you're fixing, add one under `Assets/Tests/EditMode` or `Assets/Tests/PlayMode` (create the folders + asmdefs referencing the code under test on first use).
+3. Bug fixes are **test-first**: write the failing repro test under `Assets/Tests/EditMode` or `PlayMode` *before* touching the fix, watch it fail, then fix until green (create the folders + asmdefs referencing the code under test on first use).
 4. A failing test after your change is your problem even if it "looks unrelated" — investigate before dismissing.
 
 ## 3. Runtime smoke check (when a scene/feature should visibly work)
@@ -26,6 +26,10 @@ Requires the Unity editor running with MCP for Unity connected (`unityMCP` serve
 1. `manage_editor` with `action: "play"`, let it run a few seconds, `read_console` for exceptions, then `manage_editor` `action: "stop"`. **Never leave play mode running.**
 2. For visual changes, verify with your eyes: `manage_camera` with the `screenshot` action (`capture_source: "game_view"`, `include_image: true`) and inspect the image.
 3. Play mode and recompiles cause domain reloads — the bridge auto-reconnects with backoff; if a call drops mid-verify, retry once before concluding it's down.
+
+## Bounded fixing — no thrashing
+
+Cap fix→recheck cycles at **3 per issue**. If the same error text comes back unchanged twice, the current strategy is wrong — stop iterating, and either change approach deliberately or report the state (error verbatim, what was tried, current hypothesis) and ask. An honest "stuck after 3 attempts" report beats ten silent mutations of the same file.
 
 ## Reporting
 

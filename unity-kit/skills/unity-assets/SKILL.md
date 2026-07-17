@@ -27,6 +27,7 @@ Requires: Blender 3.0+ running, the blender-mcp addon installed and **Connect to
 - The server exposes scene inspection, object/material creation, viewport screenshots, and `execute_blender_code` (arbitrary Python). Keep code snippets small and incremental; screenshot the viewport to verify each significant step visually.
 - **Export to Unity**: FBX or glTF into the project's `Assets/Art/Models/` (export via Blender code: `bpy.ops.export_scene.fbx(filepath=..., use_selection=True)`), then let Unity import and check settings via `manage_asset`. Unity applies a 90° X-rotation fix for Blender FBX automatically; verify scale (Blender meters vs Unity units) on first import.
 - Blender-mcp and Unity-mcp don't talk to each other — the filesystem (the Assets folder) is the handoff point.
+- Alternative on the radar: the **official Blender Lab MCP server** (blender.org/lab/mcp-server, Blender 5.1+) — better scene analysis/docs, but no PolyHaven/Sketchfab/Hyper3D asset integrations, which is why this plugin ships ahujasid/blender-mcp. Reconsider if the asset integrations land there.
 
 ## Choosing
 - 2D sprite/texture → Pipeline A `generate_image`.

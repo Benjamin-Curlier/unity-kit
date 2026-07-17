@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build plugin zip (drop into a folder, add as local marketplace)
+        run: |
+          cd unity-kit
+          zip -r ../unity-kit-plugin.zip . -x "hooks/__pycache__/*"
+          cd ..
+
+      - name: Build Unity project scaffold zip (drop into an existing Unity project folder)
+        run: |
+          mkdir -p scaffold/.claude scaffold/Docs
+          cp unity-kit/templates/CLAUDE.project.md   scaffold/CLAUDE.md
+          cp unity-kit/templates/settings.project.json scaffold/.claude/settings.json
+          cp unity-kit/templates/project.gitignore   scaffold/.gitignore
+          cp unity-kit/templates/project.gitattributes scaffold/.gitattributes
+          cp unity-kit/templates/DESIGN.template.md  scaffold/Docs/DESIGN.md
+          cp unity-kit/templates/SCAFFOLD-README.md  scaffold/README-unity-kit.md
+          cd scaffold
+          zip -r ../unity-project-scaffold.zip .
+          cd ..
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            unity-kit-plugin.zip unity-project-scaffold.zip \
+            --title "unity-kit $GITHUB_REF_NAME" --generate-notes

@@ -27,6 +27,10 @@
     "ask": [
       "Edit(**/*.meta)",
       "Write(**/*.meta)",
+      "Edit(**/*.unity)",
+      "Write(**/*.unity)",
+      "Edit(**/*.prefab)",
+      "Write(**/*.prefab)",
       "Edit(ProjectSettings/**)",
       "Write(ProjectSettings/**)"
     ]

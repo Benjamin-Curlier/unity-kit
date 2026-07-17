@@ -12,6 +12,7 @@ Given a description of what changed, do this in order:
 3. **Play-mode smoke** (only if asked, or if the change should visibly affect a scene): `manage_editor` `action: "play"`, `read_console` for exceptions over the first seconds, then `manage_editor` `action: "stop"`. Never leave play mode running. For visual changes, capture `manage_camera` `screenshot` (`capture_source: "game_view"`, `include_image: true`) and describe what you see.
 
 Notes:
+- If asked to fix-and-reverify, cap at **3 fix→recheck cycles**; if the same error recurs unchanged twice, stop and report it verbatim with your hypothesis instead of iterating further.
 - Play mode and recompiles cause domain reloads — if an MCP call drops mid-verify, retry once before reporting the bridge as down.
 - If the MCP bridge is unreachable, report exactly that ("editor not running or bridge down") — never report a verification you did not perform.
 

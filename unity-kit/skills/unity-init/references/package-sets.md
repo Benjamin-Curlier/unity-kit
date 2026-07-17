@@ -2,6 +2,8 @@
 
 Install in-editor via `manage_packages` (Unity resolves versions). Order matters loosely: render pipeline first, input second, then the rest.
 
+Community packages (OpenUPM scoped registry) are a per-need decision **after** init, not part of the bootstrap — see the `unity-packages` skill.
+
 ## Always
 - `com.unity.inputsystem` — new Input System (requires switching Active Input Handling + editor restart)
 - `com.unity.test-framework` — usually preinstalled; verify

@@ -4,20 +4,40 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 
 ## What's inside
 
+**Skills** (knowledge, loaded on demand into the working context):
+
+| Skill | Purpose |
+|---|---|
+| `unity-init` | Create + bootstrap a new Unity project from a concept prompt (headless create → scaffold → git → launch → in-editor setup via MCP) |
+| `unity-launch` | Launch the right editor for a project and wait for the MCP bridge; connection diagnosis |
+| `unity-verify` | The verify loop: compile → console → tests → play-mode smoke → screenshot |
+| `unity-csharp` | Unity C# conventions and pitfalls (serialization, lifecycle, Input System, URP, 2D/3D) |
+| `unity-scene` | Scene/GameObject/prefab/asset work through MCP tools; custom-tool extension path |
+| `unity-animation` | Animator state machines, blend trees, 2D frame/rig pipelines, animation events, tweening |
+| `unity-dots` | ECS + Burst + Jobs — when DOTS is (and isn't) worth it, and how to write it correctly |
+| `unity-packages` | Official registry via `manage_packages`, OpenUPM scoped registries, git-URL packages, vetting |
+| `unity-build` | Player builds via `manage_build`, with headless CLI fallback |
+| `unity-assets` | Asset generation: Unity `asset_gen` tools + the Blender pipeline (PolyHaven/Hyper3D/Sketchfab) |
+
+**Agents** (separate execution contexts for verbose work with short conclusions):
+
+| Agent | Purpose |
+|---|---|
+| `unity-runner` | Runs verification (compile/console/tests/play-mode) and reports pass/fail concisely |
+| `unity-docs-researcher` | Version-correct Unity API/docs/package research (uses `unity_reflect` when the editor is up) |
+| `asset-scout` | License-checked asset shortlists from PolyHaven/Kenney/Sketchfab/OpenGameArt/itch.io |
+| `blender-modeler` | Multi-step Blender modeling sessions with screenshot verification, exporting FBX/glTF into Assets |
+
+**Infrastructure**:
+
 | Piece | Purpose |
 |---|---|
-| `skills/unity-init` | Create + bootstrap a new Unity project from a concept prompt (headless create → scaffold → git → launch → in-editor setup via MCP) |
-| `skills/unity-launch` | Launch the right editor for a project and wait for the MCP bridge; connection diagnosis |
-| `skills/unity-verify` | The verify loop: compile → console → tests → play-mode smoke → screenshot |
-| `skills/unity-csharp` | Unity C# conventions and pitfalls (serialization, lifecycle, Input System, URP) |
-| `skills/unity-scene` | Scene/GameObject/prefab/asset work through MCP tools; custom-tool extension path |
-| `skills/unity-build` | Player builds via `manage_build`, with headless CLI fallback |
-| `skills/unity-assets` | Asset generation: Unity `asset_gen` tools + the Blender pipeline (PolyHaven/Hyper3D/Sketchfab) |
-| `agents/unity-runner` | Subagent that runs verification and reports pass/fail concisely |
 | `hooks/` | SessionStart: is Unity running? · PostToolUse: verify reminder after `.cs` edits (both silent outside Unity projects) |
 | `scripts/` | `find-unity.ps1`, `new-project.ps1`, `launch-unity.ps1` (Windows/PowerShell) |
 | `templates/` | Per-project files stamped by unity-init (CLAUDE.md, settings, gitignore/attributes, DESIGN.md) |
 | `.mcp.json` | Registers `unityMCP` (HTTP, localhost:8080) and `blender` (uvx blender-mcp, telemetry off) |
+
+There is deliberately no "2D agent" / "3D agent" / "workflow master": domain knowledge lives in skills loaded into the main working context, and orchestration is the main conversation's job — agents exist only where verbose work compresses to a short report.
 
 ## Requirements
 
@@ -28,10 +48,20 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 
 ## Install
 
+From GitHub:
+
 ```
-claude plugin marketplace add C:\Users\bencu\claude-plugins
+claude plugin marketplace add Benjamin-Curlier/unity-kit
 claude plugin install unity-kit@bencu-plugins
 ```
+
+For local development of the plugin itself, point the marketplace at your clone instead:
+
+```
+claude plugin marketplace add C:\path\to\unity-kit-repo
+```
+
+Release zips (see GitHub Releases): `unity-kit-plugin.zip` (the plugin, for manual installs) and `unity-project-scaffold.zip` (drop into an **existing** Unity project folder — contains CLAUDE.md, permission settings, git files, design-doc template, plus a README with the two manual steps).
 
 ## Per-project setup
 
@@ -49,3 +79,13 @@ All keys are bring-your-own and entered **by you, in the tools' own UIs** — ne
 - The Unity editor must be open for `unityMCP` tools; the SessionStart hook tells Claude whether it is.
 - Don't install Unity AI Assistant alongside MCP for Unity (DLL conflict on Unity 6.3+).
 - Multiple open editors share one MCP server — route with `set_active_instance`.
+- Scripts are Windows/PowerShell; Linux/macOS ports welcome.
+- Blender server choice (2026-07): ahujasid/blender-mcp (24k★, active, PolyHaven/Sketchfab/Hyper3D built in) over the official Blender Lab MCP server (Blender 5.1+, no asset-library integrations yet) — revisit when the official server gains asset sourcing.
+
+## Prior art & positioning (surveyed 2026-07)
+
+No maintained, marketplace-installable plugin combines project init + verify loop + conventions + scene/asset work on top of CoplayDev's unity-mcp; the official Anthropic plugin marketplaces contain no gamedev entries. Ideas adopted from the ecosystem: scene/prefab text-edit guards and bounded verify-fix loops (everything-claude-unity), test-first bug fixing (nowsprinting/unity-coding-skills). Roadmap candidates: a router that loads skills based on detected project packages (awesome-gamedev-agent-skills pattern), bundling a version-pinned Unity API docs MCP, macOS/Linux scripts, and a submission to the community marketplace.
+
+## License
+
+MIT — see [LICENSE](../LICENSE). The wrapped projects have their own licenses: MCP for Unity (MIT, CoplayDev) and blender-mcp (MIT, ahujasid).
