@@ -29,7 +29,7 @@ Preflight (fail early with a clear message): `git --version`, `uv --version`, an
 
 ## Phase 2 — Create the project
 
-Run `scripts/new-project.ps1 -UnityExe <exe> -ProjectPath <path>`. This is headless and takes 1–2 minutes. Do not pre-write anything into the folder before this succeeds — the script refuses to overwrite an existing path.
+Run `scripts/new-project.ps1 -UnityExe <exe> -ProjectPath <path>`. This is headless and takes 1–2 minutes. Do not pre-write anything into the folder before this succeeds — the script refuses a **non-empty** existing path. (An existing *empty* directory is fine — the common case where the Claude session's working directory is the target folder and can't be deleted.)
 
 ## Phase 3 — Stamp the scaffold (before first real editor launch)
 
@@ -49,12 +49,13 @@ All from `templates/` (fill `{{PLACEHOLDERS}}`):
 
 ## Phase 5 — Launch & in-editor bootstrap
 
-1. `scripts/launch-unity.ps1 -ProjectPath <path>` — waits for the MCP port; a fresh project's first import is slow (script default timeout 15 min).
-2. Poll `mcpforunity://editor/state` until ready and not compiling. `read_console` must be clean before proceeding.
-3. **Install packages via MCP** `manage_packages`, one at a time from the chosen set (each install can trigger recompile/domain reload — poll `editor/state` between installs; the bridge auto-reconnects). Unity resolves the right versions for the editor.
-4. Render pipeline (URP sets): create + assign the URP asset (2D Renderer for 2D) via `manage_graphics` if it supports it, else `execute_code` (activate `scripting_ext` via `manage_tools` first). Set Active Input Handling to the new Input System if the input package was installed (needs editor restart — relaunch via `unity-launch` when prompted).
-5. Create the first scene per the concept (camera, light if 3D, a placeholder player/board), an `InputActions` asset for the input scheme, and `Assets/Tests/EditMode` + `PlayMode` asmdefs. Save everything (`manage_scene` / `execute_menu_item` File/Save Project).
-6. Run the **unity-verify** loop: console clean, a trivial EditMode test passes, screenshot of the Game view.
+1. `scripts/launch-unity.ps1 -ProjectPath <path>` — waits for the MCP bridge (status file `~/.unity-mcp/unity-mcp-status-*.json` reporting `ready` + its TCP port answering); a fresh project's first import is slow (script default timeout 15 min — run it in the background, the harness's foreground tool timeout is shorter).
+2. **Register the MCP server for the project** so sessions get native `mcp__unityMCP__*` tools: `claude mcp add UnityMCP -- uvx --from mcpforunityserver mcp-for-unity` (run from the project directory; the in-editor auto-setup does not do this for Claude Code by itself). The **current** session started before that registration, so it has no unityMCP tools — drive the bridge with `scripts/mcp-stdio-call.py` (batch JSON-RPC calls from a JSON file) for the rest of this phase.
+3. Poll `mcpforunity://editor/state` until ready and not compiling. `read_console` must be clean before proceeding (ignore `MCP-FOR-UNITY` client-handler noise — see unity-verify).
+4. **Install packages via MCP** `manage_packages` (`add_package`), one at a time from the chosen set (each install is an async job and can trigger recompile/domain reload — poll `editor/state` between installs; the bridge auto-reconnects). Unity resolves the right versions for the editor. Include `com.unity.test-framework` explicitly — it is not preinstalled in fresh 6000.5+ projects.
+5. Render pipeline (URP sets): `manage_graphics` cannot *create* pipeline assets — use `execute_code` (activate `scripting_ext` via `manage_tools` first; the CodeDom fallback compiler is C# 6, write accordingly) to create the URP asset + 2D/3D renderer data, assign `GraphicsSettings.defaultRenderPipeline` and every quality level, then verify with `manage_graphics` `pipeline_get_info`. Set Active Input Handling to the new Input System if the input package was installed (`activeInputHandler = 1` on ProjectSettings via SerializedObject; needs editor restart — save project, exit, relaunch via `unity-launch`).
+6. Create the first scene per the concept (camera, light if 3D, a placeholder player/board), an `InputActions` asset for the input scheme, and `Assets/Tests/EditMode` + `PlayMode` asmdefs. Save everything (`manage_scene` / `execute_menu_item` File/Save Project).
+7. Run the **unity-verify** loop: console clean, a trivial EditMode test passes, screenshot of the Game view.
 
 ## Phase 6 — Final commit & report
 
@@ -62,5 +63,5 @@ Commit ("feat: bootstrap <concept> — packages, URP, input, first scene, tests"
 
 ## Failure notes
 - `new-project.ps1` timeout → check the log path it prints; the editor version may be broken or licensing may need a Hub sign-in (interactive — hand to the user).
-- MCP never answers after launch → editor is importing (wait), auto-start disabled (Window → MCP for Unity), or port conflict (another instance: use `mcpforunity://instances` + `set_active_instance`).
+- MCP never answers after launch → editor is importing (wait), auto-start disabled (Window → MCP for Unity), or another instance needs routing (`mcpforunity://instances` + `set_active_instance`). Check the status file first: `~/.unity-mcp/unity-mcp-status-*.json` with a fresh heartbeat and `"reason":"ready"` means the bridge is fine and the problem is client-side (server not registered for the session — see Phase 5 step 2).
 - Never delete a half-created project to retry without telling the user what and why.

@@ -10,7 +10,7 @@ Requires the Unity editor running with MCP for Unity connected (`unityMCP` serve
 ## 1. Compile check (always, after any .cs change)
 
 1. **Do not manually refresh.** Unity auto-compiles on file changes. Poll the `mcpforunity://editor/state` resource until `is_compiling` is false. (Use `refresh_unity` only if the editor hasn't noticed external changes at all.)
-2. Call `read_console` with `types: ["error"]` — any compile error is a hard stop: fix it and re-check before anything else. One error frequently masks the next, so re-read after each fix.
+2. Call `read_console` with `types: ["error"]` — any compile error is a hard stop: fix it and re-check before anything else. One error frequently masks the next, so re-read after each fix. **Filter out MCP plumbing noise first**: entries containing `MCP-FOR-UNITY` (e.g. "Client handler exited", "[IO] ✗ write FAIL … ObjectDisposedException") are logged when MCP clients disconnect during domain reloads — they are not compile errors and must not fail the check.
 3. Then `read_console` with `types: ["warning"]` — fix new warnings you introduced if trivial, otherwise report them.
 4. `validate_script` can lint a single script before waiting on a full compile.
 

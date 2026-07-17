@@ -6,7 +6,7 @@ Community packages (OpenUPM scoped registry) are a per-need decision **after** i
 
 ## Always
 - `com.unity.inputsystem` — new Input System (requires switching Active Input Handling + editor restart)
-- `com.unity.test-framework` — usually preinstalled; verify
+- `com.unity.test-framework` — **NOT preinstalled** in fresh Unity 6000.5+ empty projects (it may resolve transitively via 2D packages, but install it explicitly as a direct dependency so the Test Runner is stable)
 - `com.unity.cinemachine` — virtual cameras (2D and 3D)
 
 ## 2D set
