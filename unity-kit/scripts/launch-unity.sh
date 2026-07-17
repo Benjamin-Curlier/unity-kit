@@ -26,8 +26,26 @@ if [[ -z "$UNITY_EXE" ]]; then
 fi
 [[ -x "$UNITY_EXE" ]] || { echo "Editor not found: $UNITY_EXE — install via Unity Hub or pass it explicitly." >&2; exit 1; }
 
-LAUNCH_STAMP="$(mktemp)"
 NORMALIZED_ASSETS="${PROJECT_PATH%/}/Assets"
+
+# If this project's bridge is already ready, don't launch a second instance: Unity would refuse
+# ("project already open") and quit, while the EXISTING instance's heartbeats keep the status file
+# fresh — which fools naive relaunch/restart flows into thinking the new instance came up.
+for f in "$HOME"/.unity-mcp/unity-mcp-status-*.json; do
+  [[ -f "$f" ]] || continue
+  [[ -n "$(find "$f" -mmin -2 2>/dev/null)" ]] || continue
+  grep -q "\"project_path\":\"$NORMALIZED_ASSETS\"" "$f" || continue
+  grep -q '"reason":"ready"' "$f" || continue
+  grep -q '"reloading":false' "$f" || continue
+  port="$(sed -n 's/.*"unity_port":\([0-9][0-9]*\).*/\1/p' "$f")"
+  if [[ -n "$port" ]] && port_open "$port"; then
+    echo "MCP bridge already ready on TCP port $port — not launching a second instance."
+    echo "To RESTART instead: save via MCP, close the running editor, WAIT until its process is gone (verify the PID died — EditorApplication.Exit via execute_code is unreliable, prefer closing from the OS), then run this script again."
+    exit 0
+  fi
+done
+
+LAUNCH_STAMP="$(mktemp)"
 
 bridge_ready() {
   local f port

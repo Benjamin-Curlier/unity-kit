@@ -11,6 +11,7 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 | `unity-init` | Create + bootstrap a new Unity project from a concept prompt (headless create → scaffold → git → launch → in-editor setup via MCP) |
 | `unity-launch` | Launch the right editor for a project and wait for the MCP bridge; connection diagnosis |
 | `unity-verify` | The verify loop: compile → console → tests → play-mode smoke → screenshot |
+| `unity-playtest` | Prove the game plays: InputTestFixture input-path tests, live state probing, screenshot checkpoints |
 | `unity-csharp` | Unity C# conventions and pitfalls (serialization, lifecycle, Input System, URP, 2D/3D) |
 | `unity-scene` | Scene/GameObject/prefab/asset work through MCP tools; custom-tool extension path |
 | `unity-animation` | Animator state machines, blend trees, 2D frame/rig pipelines, animation events, tweening |
@@ -30,6 +31,7 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 | `/unity-kit:fix <bug>` | Test-first bug fix: failing repro test → fix → full verify |
 | `/unity-kit:ship [target]` | Verify loop as a hard gate, then player build |
 | `/unity-kit:doctor` | Diagnose editor/MCP-bridge connection and tool-group state |
+| `/unity-kit:playtest` | Playtest the game: input-path tests, live session probing, screenshots |
 
 **Agents** (separate execution contexts for verbose work with short conclusions):
 
