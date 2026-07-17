@@ -44,7 +44,7 @@ For everything that isn't the input path itself: `manage_editor` `play`, then `e
 
 ## Tier 3 — see it
 
-`manage_camera` `screenshot` (`capture_source: "game_view"`) at checkpoints: after boot, after a scripted action, at the end state. Read the image and actually look at it — assert with your eyes that the thing the state claims is on screen.
+`manage_camera` `screenshot` (`capture_source: "game_view"`) at checkpoints: after boot, after a scripted action, at the end state. Read the image and actually look at it — assert with your eyes that the thing the state claims is on screen. Screenshots catch a class of bug state probing structurally cannot: state says one thing, pixels show another (field example: a UI label whose `text` was never assigned — every state probe passed, the screenshot showed it blank). When a screenshot surprises you, probe the specific object (`FindObjectsByType`, dump the relevant properties) to localize the mismatch.
 
 Always `manage_editor` `stop` when done. Never leave play mode running.
 
