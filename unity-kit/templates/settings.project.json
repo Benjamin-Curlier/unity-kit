@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__unityMCP__read_console",
+      "mcp__unityMCP__find_gameobjects",
+      "mcp__unityMCP__find_in_file",
+      "mcp__unityMCP__get_sha",
+      "mcp__unityMCP__validate_script",
+      "mcp__unityMCP__get_test_job",
+      "mcp__unityMCP__manage_script_capabilities",
+      "mcp__unityMCP__unity_docs",
+      "mcp__unityMCP__unity_reflect",
+      "mcp__unityMCP__debug_request_context"
+    ],
+    "deny": [
+      "Edit(Library/**)",
+      "Write(Library/**)",
+      "Edit(Temp/**)",
+      "Write(Temp/**)",
+      "Edit(obj/**)",
+      "Write(obj/**)",
+      "Edit(Logs/**)",
+      "Write(Logs/**)",
+      "Edit(UserSettings/**)",
+      "Write(UserSettings/**)"
+    ],
+    "ask": [
+      "Edit(**/*.meta)",
+      "Write(**/*.meta)",
+      "Edit(ProjectSettings/**)",
+      "Write(ProjectSettings/**)"
+    ]
+  }
+}

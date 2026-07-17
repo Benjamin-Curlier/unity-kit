@@ -1,0 +1,14 @@
+{
+  "name": "bencu-plugins",
+  "owner": {
+    "name": "bencu",
+    "email": "bencurlier@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "unity-kit",
+      "source": "./unity-kit",
+      "description": "Unity development toolkit: project init from a prompt, editor launch, verify loop, C#/scene/asset/build skills. Integrates MCP for Unity (CoplayDev) and blender-mcp."
+    }
+  ]
+}
