@@ -7,7 +7,13 @@ PROJECT_PATH="${2:?usage: new-project.sh <unity-exe> <project-path> [timeout-sec
 TIMEOUT_SEC="${3:-600}"
 
 [[ -x "$UNITY_EXE" ]] || { echo "Unity editor not found/executable: $UNITY_EXE" >&2; exit 1; }
-[[ -e "$PROJECT_PATH" ]] && { echo "Path already exists: $PROJECT_PATH — refusing to overwrite." >&2; exit 1; }
+# An existing EMPTY directory is fine — Unity's -createProject accepts it. This matters when the
+# Claude session's cwd IS the target folder (it can't be deleted while the shell holds it open).
+if [[ -e "$PROJECT_PATH" ]]; then
+  if [[ ! -d "$PROJECT_PATH" || -n "$(ls -A "$PROJECT_PATH" 2>/dev/null)" ]]; then
+    echo "Path already exists and is not empty: $PROJECT_PATH — refusing to overwrite." >&2; exit 1
+  fi
+fi
 
 LOG="${TMPDIR:-/tmp}/unity-create-$(basename "$PROJECT_PATH").log"
 "$UNITY_EXE" -batchmode -quit -createProject "$PROJECT_PATH" -logFile "$LOG" &

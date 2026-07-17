@@ -7,7 +7,14 @@ param(
 )
 
 if (-not (Test-Path $UnityExe)) { Write-Error "Unity editor not found: $UnityExe"; exit 1 }
-if (Test-Path $ProjectPath) { Write-Error "Path already exists: $ProjectPath — refusing to overwrite."; exit 1 }
+if (Test-Path $ProjectPath) {
+    # An existing EMPTY directory is fine — Unity's -createProject accepts it. This matters when
+    # the Claude session's working directory IS the target folder: it can't be deleted (the shell
+    # holds it open), but creating into it works.
+    if (-not (Test-Path $ProjectPath -PathType Container) -or (Get-ChildItem $ProjectPath -Force | Select-Object -First 1)) {
+        Write-Error "Path already exists and is not empty: $ProjectPath — refusing to overwrite."; exit 1
+    }
+}
 
 $logFile = Join-Path $env:TEMP ("unity-create-" + [IO.Path]::GetFileName($ProjectPath) + ".log")
 $p = Start-Process -FilePath $UnityExe -PassThru -ArgumentList @(
