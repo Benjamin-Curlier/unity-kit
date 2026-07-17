@@ -18,6 +18,8 @@ description: Launch the Unity editor for a project and wait until the MCP for Un
 
 To list installed editors first: `& "${CLAUDE_PLUGIN_ROOT}/scripts/find-unity.ps1"` (JSON: version/channel/exe, newest first).
 
+On macOS/Linux use the `.sh` counterparts of all three scripts (same arguments, positional: `launch-unity.sh <project-path> [unity-exe] [port] [timeout]`).
+
 ## Multiple editor instances
 
 All instances share one MCP server. If more than one project is open, calls error until routed: read `mcpforunity://instances`, then `set_active_instance` (instances are named `Name@hash`). The launch script warns when the port was already up before launching.

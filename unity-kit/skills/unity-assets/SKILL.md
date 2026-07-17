@@ -15,7 +15,7 @@ Never ask the user to paste a key into chat, never write keys into config files,
 ## Pipeline A — inside Unity (asset_gen group)
 
 1. Activate once per session: `manage_tools` `action: "activate"`, group `asset_gen`.
-2. Tools: `generate_image` (sprites, textures, concept art), `generate_model` (text/image → 3D), `generate_audio` (SFX/music; newer servers only), `import_model` (Sketchfab search+import), `import_model_file` (local FBX/OBJ/glTF).
+2. Tools: `generate_image` (sprites, textures, concept art), `generate_model` (text/image → 3D), `generate_audio` (SFX/music — stable since MCP for Unity v10.1.0; details in the unity-audio skill), `import_model` (Sketchfab search+import), `import_model_file` (local FBX/OBJ/glTF).
 3. Generated assets land in the project — then fix import settings via `manage_asset`: sprites need PPU consistent with the project, point filtering for pixel art; models need scale/materials checked.
 4. Generation is slow and costs the user money per call — batch thoughtfully, show the result (screenshot or image) before generating variants.
 

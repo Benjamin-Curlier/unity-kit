@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON files
+        run: |
+          python3 - <<'EOF'
+          import json, pathlib, sys
+          bad = []
+          for p in pathlib.Path(".").rglob("*.json"):
+              if ".git" in p.parts:
+                  continue
+              try:
+                  json.loads(p.read_text(encoding="utf-8"))
+              except Exception as e:
+                  bad.append(f"{p}: {e}")
+          if bad:
+              print("\n".join(bad)); sys.exit(1)
+          print("all JSON valid")
+          EOF
+
+      - name: Lint skill/agent/command frontmatter
+        run: |
+          python3 - <<'EOF'
+          import pathlib, re, sys
+          bad = []
+          def frontmatter(p):
+              text = p.read_text(encoding="utf-8")
+              m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+              return m.group(1) if m else None
+          for p in pathlib.Path("unity-kit/skills").glob("*/SKILL.md"):
+              fm = frontmatter(p)
+              if not fm or "name:" not in fm or "description:" not in fm:
+                  bad.append(f"{p}: missing frontmatter name/description")
+          for p in pathlib.Path("unity-kit/agents").glob("*.md"):
+              fm = frontmatter(p)
+              if not fm or "name:" not in fm or "description:" not in fm:
+                  bad.append(f"{p}: missing frontmatter name/description")
+          for p in pathlib.Path("unity-kit/commands").glob("*.md"):
+              fm = frontmatter(p)
+              if not fm or "description:" not in fm:
+                  bad.append(f"{p}: missing frontmatter description")
+          if bad:
+              print("\n".join(bad)); sys.exit(1)
+          print("frontmatter OK")
+          EOF
+
+      - name: Python hook syntax
+        run: python3 -m py_compile unity-kit/hooks/*.py
+
+      - name: Bash script syntax
+        run: |
+          for f in unity-kit/scripts/*.sh; do bash -n "$f"; done
+          echo "bash syntax OK"
