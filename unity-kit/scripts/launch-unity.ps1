@@ -43,6 +43,20 @@ if (-not (Test-Path $UnityExe)) {
     exit 1
 }
 
+# If this project's bridge is already ready, don't launch a second instance: Unity would refuse
+# ("project already open") and quit, while the EXISTING instance's heartbeats keep the status file
+# fresh — which fools naive relaunch/restart flows into thinking the new instance came up.
+$normalizedAssets = (($ProjectPath -replace '\\', '/').TrimEnd('/')) + "/Assets"
+foreach ($f in Get-ChildItem "$env:USERPROFILE\.unity-mcp\unity-mcp-status-*.json" -ErrorAction SilentlyContinue) {
+    if (((Get-Date) - $f.LastWriteTime).TotalSeconds -gt 120) { continue }
+    try { $j = Get-Content $f.FullName -Raw | ConvertFrom-Json } catch { continue }
+    if ($j.project_path -eq $normalizedAssets -and $j.reason -eq "ready" -and -not $j.reloading -and (Test-Port ([int]$j.unity_port))) {
+        Write-Output "MCP bridge already ready for $($j.project_name) on TCP port $($j.unity_port) — not launching a second instance."
+        Write-Output "To RESTART instead: save via MCP, close the running editor, WAIT until its process is gone (verify the PID died — EditorApplication.Exit via execute_code is unreliable, prefer closing the window/process from the OS), then run this script again."
+        exit 0
+    }
+}
+
 $launchTime = Get-Date
 $p = Start-Process -FilePath $UnityExe -PassThru -ArgumentList @("-projectPath", "`"$ProjectPath`"")
 Write-Output "Launched Unity (PID $($p.Id)) for $ProjectPath — waiting for the MCP bridge (status file + TCP probe, timeout ${TimeoutSec}s)..."

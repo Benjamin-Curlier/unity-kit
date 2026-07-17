@@ -23,6 +23,8 @@ Requires the Unity editor running with MCP for Unity connected (`unityMCP` serve
 
 ## 3. Runtime smoke check (when a scene/feature should visibly work)
 
+For anything input-driven ("does the keyboard actually steer the player?"), use the **unity-playtest** skill — a smoke check here does not exercise the input path, and live key simulation has editor-focus pitfalls that skill documents.
+
 1. `manage_editor` with `action: "play"`, let it run a few seconds, `read_console` for exceptions, then `manage_editor` `action: "stop"`. **Never leave play mode running.**
 2. For visual changes, verify with your eyes: `manage_camera` with the `screenshot` action (`capture_source: "game_view"`, `include_image: true`) and inspect the image.
 3. Play mode and recompiles cause domain reloads — the bridge auto-reconnects with backoff; if a call drops mid-verify, retry once before concluding it's down.
