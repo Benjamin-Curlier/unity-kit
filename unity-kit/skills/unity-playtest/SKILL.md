@@ -60,7 +60,7 @@ Single-player smokes prove nothing about a client/server game — every smoke ru
 
 ## Structured sessions — the loop shape that finds bugs
 
-For anything beyond a quick smoke, run Tier 2/3 as a **structured session** (the shape validated by 2025's game-QA agent research — state abstraction, filtered actions, reflection, oracles):
+For anything beyond a quick smoke, run Tier 2/3 as a **structured session** (the loop shape from 2025 game-QA agent research — TITAN, arXiv:2509.22170, preprint — state abstraction, filtered actions, reflection, oracles):
 
 - **Plan before play**: a falsifiable goal, probe expressions with expected **buckets** (score: 0 / 1–5 / >5 — buckets make "no progress" detectable), an action list of ≤6 intent-level moves, and an action budget.
 - **Act only from the planned list** — improvised actions turn a playtest into a wander.
@@ -80,4 +80,4 @@ The `playtest-qa` agent runs one such session and returns the evidence bundle; `
 
 State what was pressed, what was asserted, what the screenshot shows: "InputTestFixture: W turns, reversal rejected, restart-on-key — 3/3 green; live session: 12 ticks probed, ate 2 food, score 2, no exceptions; screenshot shows snake+HUD" — not "playtested, works".
 
-**Evidence, not verdicts.** Controlled studies show a wrong AI verdict makes the human reviewer *worse* than no AI at all — so report claims with their supporting evidence (probe values, console lines, what the screenshot shows) and let the human adjudicate. Where evidence is thin or contradictory, say so instead of rounding to pass/fail.
+**Evidence, not verdicts.** A controlled study (arXiv:2501.11782, preprint) shows a wrong AI verdict makes the human reviewer *worse* than no AI at all — so report claims with their supporting evidence (probe values, console lines, what the screenshot shows) and let the human adjudicate. Where evidence is thin or contradictory, say so instead of rounding to pass/fail.

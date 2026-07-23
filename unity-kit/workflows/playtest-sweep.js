@@ -17,7 +17,8 @@ export const meta = {
   ],
 }
 
-const count = Math.max(1, Math.min(10, (args && args.count) || 5))
+const rawCount = Number(args && args.count)
+const count = Number.isFinite(rawCount) ? Math.max(1, Math.min(10, Math.trunc(rawCount))) : 5
 const focus = (args && args.focus) ? String(args.focus) : ''
 
 phase('Plan')
@@ -53,6 +54,10 @@ Each scenario's actions must be INTENT-LEVEL (the method/field the input handler
   { label: 'plan-scenarios', schema: PLAN_SCHEMA })
 
 if (!plan || !plan.scenarios || plan.scenarios.length === 0) throw new Error('scenario planning returned nothing')
+if (plan.scenarios.length > count) {
+  log(`Planner returned ${plan.scenarios.length} scenarios — truncating to the requested ${count}`)
+  plan.scenarios = plan.scenarios.slice(0, count)
+}
 log(`Planned ${plan.scenarios.length} scenarios: ${plan.scenarios.map(s => s.name).join(' · ')}`)
 
 const EVIDENCE_SCHEMA = {
@@ -71,6 +76,8 @@ const EVIDENCE_SCHEMA = {
   required: ['scenarioName', 'sessionRan', 'actionsTaken', 'probeLog', 'consoleTail', 'goalEvidence', 'playModeStopped'],
 }
 
+// NOTE: this protocol is MIRRORED in agents/playtest-qa.md (the non-workflow path) —
+// edit both together or they drift.
 const playPrompt = (s) => `Run ONE playtest session for the scenario below. The Unity editor is open with MCP for Unity connected; you own the editor for this session. Use the unity-playtest skill's discipline throughout.
 
 GAME: ${plan.gameSummary}
@@ -90,20 +97,30 @@ Report evidence, not verdicts: goalEvidence is a claim plus the probes/screensho
 
 phase('Play')
 // Serial play (one editor), analysis overlapped: each session's analysis starts
-// while the next session plays.
+// while the next session plays. Analysis agents get no editor role by PROMPT only —
+// a known soft spot (there is no tools-restricted generic agent type to pin them to);
+// their task is pure text analysis of an evidence bundle, so the temptation surface is small.
 const analyses = []
 const sessions = []
+let prevLeftPlayRunning = false
 for (const s of plan.scenarios) {
-  const ev = await agent(playPrompt(s), { label: `play:${s.name.slice(0, 30)}`, phase: 'Play', schema: EVIDENCE_SCHEMA })
+  const preamble = prevLeftPlayRunning
+    ? 'FIRST: the previous session may have left play mode running — issue manage_editor "stop", confirm stopped via the editor/state resource, then begin the protocol.\n\n'
+    : ''
+  const ev = await agent(preamble + playPrompt(s), { label: `play:${s.name.slice(0, 30)}`, phase: 'Play', schema: EVIDENCE_SCHEMA })
   if (!ev) { log(`play:${s.name} returned nothing — skipped in report`); continue }
   sessions.push(ev)
-  if (ev.playModeStopped === false) log(`WARNING play:${s.name} reported play mode NOT stopped — next session may misbehave`)
-  analyses.push(agent(`Analyze this playtest evidence bundle against its scenario's oracles. Read-only; no editor access.
+  prevLeftPlayRunning = ev.playModeStopped === false
+  if (prevLeftPlayRunning) log(`WARNING play:${s.name} reported play mode NOT stopped — next session will stop it first`)
+  // .catch(() => null): these promises run outside parallel(), so an analysis failure would
+  // otherwise reject the barrier below and lose every already-paid-for play session.
+  analyses.push(agent(`Analyze this playtest evidence bundle against its scenario's oracles. TEXT ANALYSIS ONLY: no editor access, never call any mcp__unityMCP__* tool — another agent owns the editor right now.
 SCENARIO: ${JSON.stringify(s)}
 EVIDENCE: ${JSON.stringify(ev)}
 For each oracle (console exceptions, goal/task status, action-budget runaway, screenshot-vs-state mismatch): state what the evidence shows as a claim with the supporting excerpt. Distinguish "bug in the game" from "gap in the scenario/probes". Flag anything a human must adjudicate (ambiguous evidence, screenshot contradicting probes). Severity-tag anomalies high/medium/low. Return concise markdown.`,
-    { label: `analyze:${s.name.slice(0, 30)}`, phase: 'Analyze', effort: 'medium' }))
+    { label: `analyze:${s.name.slice(0, 30)}`, phase: 'Analyze', effort: 'medium' }).catch(() => null))
 }
+if (sessions.length === 0) throw new Error('no play session produced evidence — check the editor/MCP bridge (unity-launch) and the long-run allowlist (agentic-workflows preflight)')
 
 phase('Analyze')
 const analyzed = (await Promise.all(analyses)).filter(Boolean)

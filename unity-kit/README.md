@@ -50,7 +50,7 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 | `blender-modeler` | Multi-step Blender modeling sessions with screenshot verification, exporting FBX/glTF into Assets |
 | `playtest-qa` | One structured playtest scenario (state probes → intent actions → stall reflection → bug oracles), returned as a compact evidence bundle |
 
-**Workflows** (`workflows/*.js` — deterministic multi-agent orchestrations for the Workflow tool; plugins can't register these natively, so commands invoke them by `scriptPath`, and you can copy them into your project's `.claude/workflows/` to customize):
+**Workflows** (`workflows/*.js` — deterministic multi-agent orchestrations for the Workflow tool; there's no documented plugin component for workflows as of 2026-07, so commands invoke them by `scriptPath`, and you can copy them into your project's `.claude/workflows/` to customize):
 
 | Workflow | Does |
 |---|---|
@@ -66,7 +66,7 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 | `templates/` | Per-project files stamped by unity-init (CLAUDE.md, settings, gitignore/attributes, DESIGN.md) |
 | `.mcp.json` | Registers `unityMCP` (HTTP, localhost:8080), `blender` (uvx blender-mcp, telemetry off), and `elevenlabs` (uvx elevenlabs-mcp, key via `${ELEVENLABS_API_KEY}`) |
 
-There is deliberately no "2D agent" / "3D agent" / "workflow master" persona: domain knowledge lives in skills loaded into whoever needs it, agents exist only where verbose work compresses to a short report, and orchestration is codified as *structure* — the `agentic-workflows` skill (when to fan out at all, and the editor-exclusivity rule that organizes gamedev orchestration: one editor, one driver, serialize editor work structurally) plus the two shipped workflow scripts. Narrow single-purpose agents delegate reliably; persona zoos don't (2026 survey + Anthropic subagent guidance).
+There is deliberately no "2D agent" / "3D agent" / "workflow master" persona: domain knowledge lives in skills loaded into whoever needs it, agents exist only where verbose work compresses to a short report, and orchestration is codified as *structure* — the `agentic-workflows` skill (when to fan out at all, and the editor-exclusivity rule that organizes gamedev orchestration: one editor, one driver, serialize editor work structurally) plus the two shipped workflow scripts. Narrow single-purpose agents delegate reliably; persona zoos don't (Anthropic subagent guidance + 2026 practitioner writeups).
 
 ## Requirements
 
@@ -118,7 +118,7 @@ All keys are bring-your-own and entered **by you** — never in chat, never writ
 
 ## Prior art & positioning (surveyed 2026-07)
 
-No maintained, marketplace-installable plugin combines project init + verify loop + conventions + scene/asset work on top of CoplayDev's unity-mcp; the official Anthropic plugin marketplaces contain no gamedev entries. Ideas adopted from the ecosystem: scene/prefab text-edit guards and bounded verify-fix loops (everything-claude-unity), test-first bug fixing (nowsprinting/unity-coding-skills), headless CLI test running as a CI complement to in-editor MCP verification (Dev-GOM/unity-dev-toolkit — no plugin combined both until now), the TITAN playtest loop shape (arXiv:2509.22170: state abstraction → filtered actions → stall-triggered reflection → bug oracles), and evidence-not-verdicts QA reporting (arXiv:2501.11782: wrong AI verdicts make human reviewers worse than no AI). Roadmap candidates: a router that loads skills based on detected project packages (awesome-gamedev-agent-skills pattern), bundling a version-pinned Unity API docs MCP, shipping a Monitor (experimental plugin component) that tails Editor.log/MCP status, a Meshy skill+MCP asset-gen surface (meshy-dev precedent), and a submission to the community marketplace.
+No maintained, marketplace-installable plugin combines project init + verify loop + conventions + scene/asset work on top of CoplayDev's unity-mcp; the official Anthropic plugin marketplaces contain no gamedev entries. Ideas adopted from the ecosystem: scene/prefab text-edit guards and bounded verify-fix loops (everything-claude-unity), test-first bug fixing (nowsprinting/unity-coding-skills), headless CLI test running as a CI complement to in-editor MCP verification (Dev-GOM/unity-dev-toolkit — none of the plugins surveyed 2026-07 combined both), the TITAN playtest loop shape (arXiv:2509.22170: state abstraction → filtered actions → stall-triggered reflection → bug oracles), and evidence-not-verdicts QA reporting (arXiv:2501.11782: wrong AI verdicts make human reviewers worse than no AI). Roadmap candidates: a router that loads skills based on detected project packages (awesome-gamedev-agent-skills pattern), bundling a version-pinned Unity API docs MCP, shipping a Monitor (experimental plugin component) that tails Editor.log/MCP status, a Meshy skill+MCP asset-gen surface (meshy-dev precedent), and a submission to the community marketplace.
 
 ## License
 

@@ -13,21 +13,23 @@ TEST_FILTER=""
 NO_GRAPHICS=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --project-path) PROJECT_PATH="$2"; shift 2 ;;
-    --platform)     PLATFORM="$2"; shift 2 ;;
-    --test-filter)  TEST_FILTER="$2"; shift 2 ;;
+    --project-path) PROJECT_PATH="${2:?--project-path needs a value}"; shift 2 ;;
+    --platform)     PLATFORM="${2:?--platform needs a value}"; shift 2 ;;
+    --test-filter)  TEST_FILTER="${2:?--test-filter needs a value}"; shift 2 ;;
     --no-graphics)  NO_GRAPHICS=1; shift ;;
     *) echo "unknown arg: $1" >&2; exit 3 ;;
   esac
 done
-PROJECT_PATH="$(cd "$PROJECT_PATH" && pwd)"
+command -v python3 >/dev/null || { echo "python3 is required (JSON/XML parsing)" >&2; exit 3; }
+PROJECT_PATH="$(cd "$PROJECT_PATH" 2>/dev/null && pwd)" || { echo "--project-path does not exist: $PROJECT_PATH" >&2; exit 3; }
 
 VERSION_FILE="$PROJECT_PATH/ProjectSettings/ProjectVersion.txt"
 [[ -f "$VERSION_FILE" ]] || { echo "Not a Unity project: $VERSION_FILE missing" >&2; exit 3; }
 VERSION="$(sed -n 's/^m_EditorVersion: *//p' "$VERSION_FILE" | tr -d '[:space:]')"
 
+# POSIX has no mandatory lock to probe, so existence is the best signal we have.
 if [[ -f "$PROJECT_PATH/Temp/UnityLockfile" ]]; then
-  echo "Temp/UnityLockfile exists - the editor has this project open. Close it (or use in-editor run_tests via MCP instead)." >&2
+  echo "Temp/UnityLockfile exists - either the editor has this project open (close it, or use in-editor run_tests via MCP), or a previous Unity run crashed (delete the file and retry)." >&2
   exit 3
 fi
 
@@ -57,6 +59,8 @@ for P in "${PLATFORMS[@]}"; do
   LOWER="$(echo "$P" | tr '[:upper:]' '[:lower:]')"
   XML="$RESULTS_DIR/$LOWER-results.xml"
   LOG="$RESULTS_DIR/$LOWER.log"
+  # Stale artifacts from a previous run would be reported as this run's results.
+  rm -f "$XML" "$LOG"
   ARGS=(-batchmode -projectPath "$PROJECT_PATH" -runTests -testPlatform "$P"
         -testResults "$XML" -logFile "$LOG" -accept-apiupdate -forgetProjectPath)
   # -nographics is safe for EditMode; PlayMode tests that touch rendering need a real (hidden) window.

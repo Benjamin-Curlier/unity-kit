@@ -15,7 +15,7 @@ Generic orchestration advice says "fan out everything". Unity breaks that: **the
 4. **Workflow tool** — repeatable fan-out with deterministic control flow. The plugin ships gamedev workflows (below). Requires a paid plan + recent CLI; if the tool is missing, run the same phases sequentially with the Agent tool — the phase structure, not the runtime, is what matters.
 5. **Agent team** — multiple peer sessions on a shared task list. Only for genuinely long parallel lanes (systems lane + content lane); one session must own integration.
 
-Roster discipline (why the plugin has no "2D agent"/"workflow master"): narrow single-purpose agents delegate reliably; persona zoos don't. Knowledge lives in skills loaded into whoever needs it.
+Roster discipline (why the plugin has no "2D agent"/"workflow master"): narrow single-purpose agents delegate reliably; persona zoos don't. Knowledge lives in skills loaded into whoever needs it. Default topology is hub-and-spoke — subagents report to the orchestrating session and never to each other; peer messaging is what rung 5 (teams) is for.
 
 ## The editor rule
 
@@ -34,11 +34,11 @@ While parallel file-authoring runs alongside an editor session, stop Unity from 
 
 Subagents inherit your allowlist; on a long run, **every non-allowlisted MCP call is a stall until a human returns** — this, not agent quality, is what kills 4-hour runs. Preflight:
 
-1. **Allowlist the run's tools** in `.claude/settings.json` (project) for the session: `mcp__unityMCP__manage_editor`, `execute_code`, `run_tests`, `manage_tools`, `manage_camera`, `refresh_unity`, plus whatever the plan touches (`manage_scene`, `manage_gameobject`, `manage_asset`, …). The scaffold's settings already allow the read-only tools; the mutating ones are a deliberate per-run decision. Remove afterwards if the grant was for the run, not the project.
+1. **Allowlist the run's tools** in `.claude/settings.json` (project) for the session: `mcp__unityMCP__manage_editor`, `execute_code`, `manage_camera`, `refresh_unity`, plus whatever the plan touches (`manage_scene`, `manage_gameobject`, `manage_asset`, …). The scaffold's settings already allow the read-only tools plus `run_tests`/`manage_tools`; the editor-mutating ones are a deliberate per-run decision. Remove afterwards if the grant was for the run, not the project.
 2. **Editor state**: bridge answers (`mcpforunity://editor/state`), console clean, `manage_tools` groups the run needs activated once.
 3. **Git checkpoint** before, commits at phase boundaries — an unattended run you can't roll back is a gamble, not a workflow.
-4. **Report contract**: every agent returns the same shape (status, files touched, tests run/passed, console errors, artifacts). Structured output beats prose for the synthesis step.
-5. **Budgets in actions, not wall-clock**: workflow scripts have no `Date.now` — cap by action counts, agent counts, or the `budget` API, and put per-issue fix caps (3, per unity-verify) in agent prompts.
+4. **Report contract**: every agent returns the same shape (status, files touched, tests run/passed, console errors, artifacts, and — for any agent that entered play mode — `playModeStopped`). Every play-mode enter is paired with a stop before the agent returns; a handoff with play mode still running is itself a reportable failure, because it poisons the next editor session. Structured output beats prose for the synthesis step.
+5. **Budgets in actions, not wall-clock**: the workflow runtime blocks wall-clock calls (`Date.now` throws — resume safety) — cap by action counts, agent counts, or the `budget` API, and put per-issue fix caps (3, per unity-verify) in agent prompts.
 
 ## Domain reloads will happen mid-run
 
@@ -46,7 +46,7 @@ Every recompile and play-mode enter/exit reloads the C# domain and drops MCP cli
 
 ## Report evidence, not verdicts
 
-Controlled studies: AI assistance lifts human defect-detection markedly — and when the AI's conclusion is wrong, assisted humans do *worse* than unassisted. So agents report **claims with evidence** (probe values, console lines, screenshots described, repro steps) for the human to adjudicate — never bare "works"/"broken". The unity-verify/unity-playtest report formats already comply; hold orchestrated agents to them.
+A controlled study (arXiv:2501.11782, preprint): AI assistance lifts human defect-detection markedly — and when the AI's conclusion is wrong, assisted humans do *worse* than unassisted. So agents report **claims with evidence** (probe values, console lines, screenshots described, repro steps) for the human to adjudicate — never bare "works"/"broken". The unity-verify/unity-playtest report formats already comply; hold orchestrated agents to them.
 
 ## Plugin workflows
 

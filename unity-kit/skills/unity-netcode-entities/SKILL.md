@@ -1,6 +1,6 @@
 ---
 name: unity-netcode-entities
-description: Netcode for Entities — client/server ECS multiplayer: worlds, tick rates, ghosts, prediction, input commands, dedicated servers, and the local test loop (thin clients, latency simulation). Use when a DOTS project needs multiplayer, when the user says netcode/dedicated server/client-server/ghosts/prediction/replication, or when an existing ECS sim must become networked. Pair with unity-dots (ECS code), unity-dots-migration (converting a sim), unity-playtest (multiplayer smoke).
+description: "Netcode for Entities — client/server ECS multiplayer: worlds, tick rates, ghosts, prediction, input commands, dedicated servers, and the local test loop (thin clients, latency simulation). Use when a DOTS project needs multiplayer, when the user says netcode/dedicated server/client-server/ghosts/prediction/replication, or when an existing ECS sim must become networked. Pair with unity-dots (ECS code), unity-dots-migration (converting a sim), unity-playtest (multiplayer smoke)."
 ---
 
 # Netcode for Entities (client/server ECS multiplayer)

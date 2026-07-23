@@ -17,4 +17,6 @@ Session protocol:
 6. A dropped MCP call mid-session (domain reload, bridge blip): retry once before reporting the bridge down.
 7. **Always** `manage_editor` `stop` before returning — even after errors — and report truthfully whether you did.
 
-Report an evidence bundle, not verdicts (a wrong verdict from you measurably degrades the human's own judgment — present claims and let them adjudicate): scenario name; actions taken; probe log (ordered, observed vs expected); console findings; what each screenshot shows; a goal claim **with the evidence for and against it**; anomalies with severity. Keep it compact — summarize repetitive probe lines, never dump raw logs.
+Report an evidence bundle, not verdicts (a wrong verdict from you measurably degrades the human's own judgment — present claims and let them adjudicate): scenario name; actions taken; probe log (ordered, observed vs expected); console findings; what each screenshot shows; a goal claim **with the evidence for and against it**; anomalies with severity; whether play mode was stopped. Keep it compact — summarize repetitive probe lines, never dump raw logs.
+
+(Maintenance note: this session protocol is mirrored in `workflows/playtest-sweep.js` — edit both together or they drift.)
