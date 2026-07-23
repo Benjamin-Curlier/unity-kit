@@ -7,7 +7,7 @@ Playtest this project across multiple planned scenarios with the plugin's playte
 
 Preflight (agentic-workflows skill, unattended-run section):
 1. Editor open with the MCP bridge answering (`mcpforunity://editor/state`) — use unity-launch if not.
-2. This run drives the editor for many minutes: check the project allowlist covers `manage_editor`, `execute_code`, `manage_camera` (and `manage_scene` if scenarios span scenes); otherwise the serial play phase stalls on prompts. Tell the user which grants are missing before launching.
+2. This run drives the editor for many minutes: check the project allowlist covers `manage_editor`, `execute_code`, `manage_camera` (and `manage_scene` if scenarios span scenes) — **using the exact server prefix this session's unityMCP tools actually have** (`mcp__unityMCP__*`, `mcp__UnityMCP__*`, or `mcp__plugin_unity-kit_unityMCP__*` depending on how the bridge was registered; a wrong-prefix rule matches nothing). Otherwise the serial play phase stalls on prompts. Tell the user which grants are missing before launching.
 
 Then invoke the Workflow tool with `scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/playtest-sweep.js"` and `args: {count: <N from $ARGUMENTS, default 5>, focus: "<rest of $ARGUMENTS if any>"}`. If this Claude Code version doesn't support invoking a script by path, copy the script into the project's `.claude/workflows/` and run it as a named workflow instead. Play sessions are serial by construction (one editor, one driver); analysis overlaps.
 

@@ -18,6 +18,8 @@ Two test paths exist; use both, they don't compete:
 scripts/run-tests-headless.ps1 -ProjectPath . -Platform Both [-TestFilter <regex>] [-NoGraphics]
 ```
 
+macOS/Linux: `bash scripts/run-tests-headless.sh --project-path . --platform Both [--test-filter <regex>] [--no-graphics]` (invoking via `bash` works even on checkouts that lost the exec bit).
+
 The script encodes the flag lore so nobody re-derives it: locates the right editor via `ProjectVersion.txt` + find-unity, refuses when `Temp/UnityLockfile` shows the editor has the project open, runs `-batchmode -runTests -testPlatform <mode> -testResults <xml> -logFile <log> -accept-apiupdate -forgetProjectPath`, parses the NUnit 3 XML, prints failures, and exits 0/2/3.
 
 What bites (the script guards these, remember them when hand-rolling):

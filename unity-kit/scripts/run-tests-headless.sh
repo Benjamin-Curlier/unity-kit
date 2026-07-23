@@ -34,8 +34,9 @@ if [[ -f "$PROJECT_PATH/Temp/UnityLockfile" ]]; then
 fi
 
 # Locate the editor via find-unity.sh (JSON list), python3 for parsing.
+# Invoked via `bash` so a checkout without the exec bit still works.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-UNITY="$("$SCRIPT_DIR/find-unity.sh" | python3 -c "
+UNITY="$(bash "$SCRIPT_DIR/find-unity.sh" | python3 -c "
 import json, sys
 editors = json.load(sys.stdin)
 for e in editors:
