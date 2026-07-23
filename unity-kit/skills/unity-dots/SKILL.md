@@ -15,7 +15,7 @@ DOTS pays off for **mass simulation**: thousands of projectiles/agents/cells upd
 - Components: `IComponentData` structs, blittable, no managed references, no methods with state. Tags are empty structs.
 - Systems: prefer `ISystem` (unmanaged, Burst-compilable) with `[BurstCompile]` on `OnCreate/OnUpdate`; `SystemBase` only when managed interop is unavoidable. Query with `SystemAPI.Query<RefRW<Foo>, RefRO<Bar>>()`.
 - Per-entity work: `IJobEntity` with `.ScheduleParallel()`; structural changes (add/remove/destroy) go through an `EntityCommandBuffer` (get from `SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>()`), never mid-iteration.
-- Authoring: MonoBehaviour + `Baker<T>` converts GameObjects to entities — **baking only runs inside SubScenes**; an authoring object outside a SubScene silently does nothing. This is the #1 "why doesn't my entity exist" bug.
+- Authoring: MonoBehaviour + `Baker<T>` converts GameObjects to entities — **baking only runs inside SubScenes**; an authoring object outside a SubScene silently does nothing. This is the #1 "why doesn't my entity exist" bug. The #2: **an authoring MonoBehaviour whose class name ≠ file name** (e.g. two authoring classes in one file) — the live editor resolves it, but the bake **import worker** can't ("referenced script is missing on <GO>") and the SubScene bakes empty. One authoring class per file, named after it (nested Bakers are fine); asmdef note: `LocalTransform` is in the separate `Unity.Transforms` assembly, not `Unity.Entities`.
 
 ## Burst rules
 - No managed types, no exceptions as flow control, no string interpolation in logs (`Debug.Log($"{x}")` breaks Burst — use `UnityEngine.Debug.Log` sparingly outside, or `Unity.Logging`).

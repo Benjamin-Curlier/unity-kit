@@ -31,7 +31,7 @@ public class GameInputTests : InputTestFixture
 
 Run via `run_tests` (`mode: "PlayMode"`, generous `init_timeout`). Cover at minimum: one key changes state, one illegal input is rejected, one end-state transition (death/goal/restart).
 
-**Do NOT try to live-simulate keys with `InputSystem.QueueStateEvent` from `execute_code`** while the editor is in normal play mode: `editorInputBehaviorInPlayMode` (default `PointersAndKeyboardsRespectGameViewFocus`) and `backgroundBehavior` (default `ResetAndDisableNonBackgroundDevices`) gate real-device event processing on Game-view/application focus — and an unfocused editor drops the events even with both overridden. Field-tested; don't burn cycles rediscovering it.
+**Do NOT try to live-simulate keys OR pointer events with `InputSystem.QueueStateEvent` from `execute_code`** while the editor is in normal play mode: `editorInputBehaviorInPlayMode` (default `PointersAndKeyboardsRespectGameViewFocus`) and `backgroundBehavior` (default `ResetAndDisableNonBackgroundDevices`) gate real-device event processing on Game-view/application focus — and an unfocused editor drops the events even with both overridden (mouse state keeps reflecting the physical OS mouse; synthetic right-clicks vanish — re-field-tested on a netcode RTS). Don't burn cycles rediscovering it. For click-driven games the live-session seam is one level up: inject the exact request entity (or call the exact method) the input handler produces — e.g. an RTS order test creates the `MoveOrderRequest` + `SendRpcCommandRequest` entity the right-click would have; Tier 1 separately proves clicks produce it.
 
 ## Tier 2 — live play session probing (state, not keys)
 
@@ -56,6 +56,7 @@ Single-player smokes prove nothing about a client/server game — every smoke ru
 - **Probe per-world**: with client/server worlds in one editor, `execute_code` must pick the right `World` (server vs client) before reading state — assert the same ghost converges to the same state in both after an action, and that a predicted action rolls back cleanly under the simulator's latency.
 - **Automated**: no public netcode test fixture exists — create server+client worlds via `ClientServerBootstrap` statics, connect on loopback, pump `world.Update()`, assert convergence (see unity-netcode-entities).
 - Screenshots: capture a client's Game view at checkpoints as usual; state-vs-pixels mismatches (Tier 3) are twice as common under prediction.
+- **Real-build smoke**: run the dedicated server + N client exes on one machine (Run In Background makes unfocused clients keep pumping); give one client `-thinclients 1` so an in-process bot army drives gameplay with zero human input. A server-side cadence log line (ticks/s + unit/connection counts) turns the server log into the assertion surface: connections appear, gameplay counts move, killing a client drops exactly its entities (connection-cleanup proof). Capture *per-window* screenshots of the client exes (`PrintWindow` by PID — never full-desktop, which grabs the user's personal screen); two clients screenshotting the same fight also proves per-viewer presentation (e.g. team colors inverted per perspective).
 
 ## When input "does nothing" for the user — diagnosis order
 

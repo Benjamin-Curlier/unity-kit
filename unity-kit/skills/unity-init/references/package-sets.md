@@ -7,7 +7,10 @@ Community packages (OpenUPM scoped registry) are a per-need decision **after** i
 ## Always
 - `com.unity.inputsystem` — new Input System (requires switching Active Input Handling + editor restart)
 - `com.unity.test-framework` — **NOT preinstalled** in fresh Unity 6000.5+ empty projects (it may resolve transitively via 2D packages, but install it explicitly as a direct dependency so the Test Runner is stable)
-- `com.unity.cinemachine` — virtual cameras (2D and 3D)
+- `com.unity.ugui` — also **NOT preinstalled** in empty projects; required the moment a Canvas/Text HUD appears (`UnityEngine.UI` won't resolve without it)
+
+## Per concept (not Always)
+- `com.unity.cinemachine` — virtual cameras (2D and 3D). Skip for fixed-camera games and dedicated-server targets — it's dead weight there.
 
 ## 2D set
 - `com.unity.render-pipelines.universal` — URP (use the **2D Renderer**)
@@ -29,7 +32,9 @@ Pick ONE netcode, never both:
 
 Alongside either:
 - `com.unity.multiplayer.playmode` — virtual players for in-editor multiplayer testing
-- `com.unity.dedicated-server` — Multiplayer Roles + content stripping for dedicated-server hosting (also install the Dedicated Server Build Support editor module)
+- `com.unity.dedicated-server` — Multiplayer Roles + content stripping for dedicated-server hosting (also install the Dedicated Server Build Support editor module — Hub headless: `-m windows-server`)
+
+Notes for fresh 6000.5 projects: the empty-project manifest **preinstalls `com.unity.multiplayer.center`** (stack wizard) — remove it once the netcode choice is made; `com.unity.logging` is **deprecated** on this editor line (use `-logFile`); `com.unity.transport` arrives editor-embedded via netcode, no pin.
 
 ## Optional (ask, don't assume)
 - `com.unity.addressables` — content-heavy games, later is fine
