@@ -1,0 +1,24 @@
+---
+name: unity-geo-maps
+description: Real-world map data as game worlds — provider licensing (Google/Mapbox restrictions, OSM/ODbL, Overture, DEMs), the offline bake pipeline that turns map features into gameplay data, projection/precision choices, and multiplayer map determinism. Use when a game plays on real-world locations ("google maps game", geo/GPS game, real-city battlefield), when picking map data sources, or when map features must drive gameplay (roads/buildings/forests/water/elevation).
+---
+
+# Real-world maps as game worlds
+
+## Licensing decides the architecture (verified 2026-07)
+- **Google Maps: display-only, never a game world.** The gaming APIs (Maps SDK for Unity, Playable Locations) were decommissioned 2022-12-31. Current ToS §3.2.3 ban scraping/bulk tile download (elevation included), caching beyond narrow 30-day carve-outs, and "creating content" — explicitly tracing roads/building outlines, terrain models from elevation values, point-in-polygon analysis; Map Tiles policy bans geodata extraction and offline use. A baked battlefield derived from Google data is contractually impossible — when a user says "use Google Maps", surface this and redirect.
+- **Mapbox: same wall** ("No Tracing, Deriving, or Extracting"; 30-day cache cap) and its Unity SDK is abandoned. **ArcGIS Maps SDK for Unity** is alive (local mode = flat plane in meters) but rights to derive redistributable gameplay data from Esri basemaps are unverified — check the agreement before depending on it. **Cesium for Unity** is 3D-tiles streaming — wrong shape for 2D gameplay grids.
+- **The proven path: OpenStreetMap (ODbL) + open DEMs.** The rendered map is a *Produced Work* → visible "© OpenStreetMap contributors" (link to openstreetmap.org/copyright) on splash/credits. Gameplay grids derived from OSM are a *derivative database* → be prepared to publish those grids (never code/art) under ODbL, and pin+archive the source extract for compliance. Precedent: Pokémon GO (OSM since 2017), MSFS. **Overture Maps** = better engineering (GeoParquet, stable GERS IDs) but its transportation/buildings/base themes are ODbL like OSM — no licensing relief; only its places/addresses themes are permissive.
+- **Elevation**: Copernicus DEM GLO-30 (free incl. commercial; mandatory DLR/Airbus credit line; it's a *surface* model — compensate canopy/buildings or forests occlude twice), SRTM (public domain, 2000-era), national LiDAR where offered (England OGL 1 m, France Etalab, US 3DEP). **FABDEM is non-commercial — never ship it.**
+
+## Pipeline: bake offline, ship bytes
+Pinned source extract (Geofabrik region PBF; the public Overpass API is dev-only — <10k queries/1 GB per day) → filter/classify tags → reproject → rasterize into (a) render assets and (b) a binary gameplay grid: per-cell movement cost, cover, concealment, blocker flags, elevation, occluder height. The feature→gameplay mapping (road class→speed, wood→concealment+occluder, building→blocker/cover/capacity, water→impassable unless bridge/ford, DEM→LOS) is a design table — write it down, make the bake execute it, test it. Tooling: osmium/pyosmium + GDAL/shapely/rasterio in a pinned (Dockerized) offline job; OsmSharp if C# must read PBF. **Runtime does zero geo-processing** — load, hash-check, query.
+
+## Projection, scale, precision
+Project once, offline, into a **local metric CRS** (UTM zone / national grid / local ENU) centered on the play area — 1 Unity unit = 1 m, origin at map center. Never let raw Web Mercator numbers touch gameplay: scale inflates by 1/cos(latitude) (~×1.73 at 55°N, ~×2 at 60°N). A ~10×10 km area centered on origin is float32-safe (≈0.5 mm granularity) — no floating origin needed at that extent. Geodetic math runs in doubles offline; the engine only ever sees local meters.
+
+## Multiplayer map determinism
+The baked grid IS the map truth: content-address it (SHA-256 in a manifest), hash-handshake on join, re-hash at load. Never re-derive gameplay data from source geodata or floats at runtime — integer/fixed-point cell records give bit-identical queries on every platform (integer LOS/pathfinding; no float geometry in the sim). Vision stays server-authoritative: LOS computed server-side, so a tampered client map only corrupts its own screen. Map revisions = new hashes; reference the map hash in replays and desync reports.
+
+## Verify
+Reproducible bake (pinned inputs + pinned toolchain, recorded hashes; diff two independent bakes before trusting a pipeline change), attribution visible in a screenshot, license credits in the legal screen. Cross-refs: unity-netcode-entities (replication), unity-dots (sim-side consumption), unity-verify.

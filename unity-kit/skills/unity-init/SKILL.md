@@ -12,7 +12,7 @@ Plugin scripts referenced below live in `${CLAUDE_PLUGIN_ROOT}/scripts/`; file t
 ## Phase 0 — Gather inputs & preflight
 
 Collect (ask only for what's missing; the concept prompt is required):
-- **Concept**: what game/app is this? Derive: 2D or 3D, art direction, first playable slice.
+- **Concept**: what game/app is this? Derive: 2D or 3D, art direction, first playable slice — and whether it's **multiplayer** (netcode model and hosting are day-one architecture, not a bolt-on).
 - **Project name + parent directory** (default: sibling of the user's other Unity projects).
 - **Optional design doc** (any local file) and **optional asset folder** (sprites, aseprite/PSD, models, audio).
 
@@ -26,6 +26,7 @@ Preflight (fail early with a clear message): `git --version`, `uv --version`, an
 4. **AskUserQuestion checkpoint** — confirm before creating anything:
    - Editor version: propose the **newest stable**. Never silently pick an alpha/beta; if only pre-release editors are installed, say so and make the user choose explicitly.
    - Show the package set and let them add/remove.
+   - **Multiplayer**: if the concept is (or may become) multiplayer, settle it here — ECS/DOTS sim → `com.unity.netcode` (Netcode for Entities); GameObject sim → `com.unity.netcode.gameobjects`; never both. Add the multiplayer set from `references/package-sets.md` and load **unity-netcode-entities** before designing the first scene — client/server shapes the architecture from the first script.
 
 ## Phase 2 — Create the project
 

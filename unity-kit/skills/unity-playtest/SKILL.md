@@ -48,6 +48,15 @@ For everything that isn't the input path itself: `manage_editor` `play`, then `e
 
 Always `manage_editor` `stop` when done. Never leave play mode running.
 
+## Tier 4 — multiplayer smoke (Netcode for Entities projects)
+
+Single-player smokes prove nothing about a client/server game — every smoke runs with the network shaped:
+
+- **PlayMode Tools** (Window > Multiplayer > PlayMode Tools): set Num Thin Clients ≥ 1 and the network simulator to a realistic profile (e.g. 100–150 ms RTT + a few % packet drop) for every play session, not just release week. Thin-client systems (`WorldSystemFilterFlags.ThinClientSimulation`) emit scripted legal inputs — the cheap N-player soak. MPPM virtual players (up to 3) when full editor clones are needed.
+- **Probe per-world**: with client/server worlds in one editor, `execute_code` must pick the right `World` (server vs client) before reading state — assert the same ghost converges to the same state in both after an action, and that a predicted action rolls back cleanly under the simulator's latency.
+- **Automated**: no public netcode test fixture exists — create server+client worlds via `ClientServerBootstrap` statics, connect on loopback, pump `world.Update()`, assert convergence (see unity-netcode-entities).
+- Screenshots: capture a client's Game view at checkpoints as usual; state-vs-pixels mismatches (Tier 3) are twice as common under prediction.
+
 ## When input "does nothing" for the user — diagnosis order
 
 1. `InputSystem.devices.Count == 0` at runtime (with `Keyboard.current == null`) while legacy `Input.*` **throws** → **half-switched editor**: Active Input Handling was changed but the editor never truly restarted. Do a verified restart (unity-launch: old PID must die first). This state arises whenever the post-switch "restart" silently failed.

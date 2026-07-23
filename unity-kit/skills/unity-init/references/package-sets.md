@@ -22,9 +22,17 @@ Community packages (OpenUPM scoped registry) are a per-need decision **after** i
 - `com.unity.probuilder` — greybox/prototype geometry
 - `com.unity.ai.navigation` — NavMesh if the concept needs agents
 
+## Multiplayer set (decide at the Phase-1 checkpoint — see unity-netcode-entities)
+Pick ONE netcode, never both:
+- `com.unity.netcode` — **Netcode for Entities**, for ECS/DOTS simulations (editor-embedded core package on 6000.4+; add by name, no version pin)
+- `com.unity.netcode.gameobjects` — NGO, for GameObject/MonoBehaviour games only
+
+Alongside either:
+- `com.unity.multiplayer.playmode` — virtual players for in-editor multiplayer testing
+- `com.unity.dedicated-server` — Multiplayer Roles + content stripping for dedicated-server hosting (also install the Dedicated Server Build Support editor module)
+
 ## Optional (ask, don't assume)
 - `com.unity.addressables` — content-heavy games, later is fine
-- `com.unity.netcode.gameobjects` — multiplayer (big commitment; confirm explicitly)
 - `com.unity.postprocessing` is NOT needed with URP (built in via Volume)
 
 ## Do not install

@@ -1,6 +1,6 @@
 {
   "name": "unity-kit",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Unity development toolkit for Claude Code: create projects from a prompt (unity-init), launch the editor and wait for MCP (unity-launch), verify work (unity-verify), write correct Unity C# (unity-csharp), drive scenes/prefabs (unity-scene), generate assets in Unity or Blender (unity-assets), and build players (unity-build). Built around CoplayDev's MCP for Unity and ahujasid's blender-mcp.",
   "author": {
     "name": "bencu",
