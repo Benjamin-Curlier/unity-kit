@@ -8,7 +8,7 @@
     {
       "name": "unity-kit",
       "source": "./unity-kit",
-      "description": "Unity development toolkit: project init from a prompt, editor launch, verify loop, C#/scene/asset/build skills. Integrates MCP for Unity (CoplayDev) and blender-mcp."
+      "description": "Unity development toolkit: project init from a prompt, editor launch, verify loop, C#/scene/asset/build skills, headless CI tests, and agentic workflows (multi-lens review, playtest sweeps). Integrates MCP for Unity (CoplayDev) and blender-mcp."
     }
   ]
 }

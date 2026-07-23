@@ -7,6 +7,8 @@
       "mcp__unityMCP__get_sha",
       "mcp__unityMCP__validate_script",
       "mcp__unityMCP__get_test_job",
+      "mcp__unityMCP__run_tests",
+      "mcp__unityMCP__manage_tools",
       "mcp__unityMCP__manage_script_capabilities",
       "mcp__unityMCP__unity_docs",
       "mcp__unityMCP__unity_reflect",

@@ -21,6 +21,8 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 | `unity-geo-maps` | Real-world map data as game worlds: provider licensing (Google/Mapbox walls, OSM/ODbL, DEMs), offline bake pipeline, projections, multiplayer map determinism |
 | `unity-packages` | Official registry via `manage_packages`, OpenUPM scoped registries, git-URL packages, vetting |
 | `unity-build` | Player builds via `manage_build`, with headless CLI fallback |
+| `unity-ci` | Unity Test Framework headless: `-batchmode -runTests` flag lore, exit codes, license/lockfile pitfalls, GameCI wiring |
+| `agentic-workflows` | Orchestrating Unity work with subagents/workflows/teams: the editor-exclusivity rule, unattended-run preflight, evidence-not-verdicts reporting |
 | `unity-assets` | Asset generation: Unity `asset_gen` tools + the Blender pipeline (PolyHaven/Hyper3D/Sketchfab) |
 | `unity-audio` | AudioSources, Mixer routing, pooling, music systems + generation pipelines (ElevenLabs, `generate_audio`, CC0 packs) |
 | `game-design` | Core-loop-first method, scope discipline, first playable slice, juice checklist, playtesting |
@@ -35,6 +37,8 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 | `/unity-kit:ship [target]` | Verify loop as a hard gate, then player build |
 | `/unity-kit:doctor` | Diagnose editor/MCP-bridge connection and tool-group state |
 | `/unity-kit:playtest` | Playtest the game: input-path tests, live session probing, screenshots |
+| `/unity-kit:review [scope]` | Multi-lens review (correctness / Unity pitfalls / performance / design alignment), every finding adversarially verified — read-only, no editor needed |
+| `/unity-kit:qa-sweep [n] [focus]` | Multi-scenario playtest sweep: planned scenarios, serial play sessions with bug oracles, claims-with-evidence report |
 
 **Agents** (separate execution contexts for verbose work with short conclusions):
 
@@ -44,17 +48,25 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 | `unity-docs-researcher` | Version-correct Unity API/docs/package research (uses `unity_reflect` when the editor is up) |
 | `asset-scout` | License-checked asset shortlists from PolyHaven/Kenney/Sketchfab/OpenGameArt/itch.io |
 | `blender-modeler` | Multi-step Blender modeling sessions with screenshot verification, exporting FBX/glTF into Assets |
+| `playtest-qa` | One structured playtest scenario (state probes → intent actions → stall reflection → bug oracles), returned as a compact evidence bundle |
+
+**Workflows** (`workflows/*.js` — deterministic multi-agent orchestrations for the Workflow tool; there's no documented plugin component for workflows as of 2026-07, so commands invoke them by `scriptPath`, and you can copy them into your project's `.claude/workflows/` to customize):
+
+| Workflow | Does |
+|---|---|
+| `gamedev-review.js` | Scope → four review lenses in parallel → 3 adversarial votes per finding → synthesized claims-with-evidence report. Read-only |
+| `playtest-sweep.js` | Scenario planning → **serial** play sessions (one editor, one driver) with overlapped analysis → sweep report. Editor + allowlist preflight required |
 
 **Infrastructure**:
 
 | Piece | Purpose |
 |---|---|
 | `hooks/` | SessionStart: is Unity running? · PostToolUse: verify reminder after `.cs` edits (both silent outside Unity projects) |
-| `scripts/` | `find-unity`, `new-project`, `launch-unity` — `.ps1` (Windows) and `.sh` (macOS/Linux) variants |
+| `scripts/` | `find-unity`, `new-project`, `launch-unity`, `run-tests-headless` — `.ps1` (Windows) and `.sh` (macOS/Linux) variants |
 | `templates/` | Per-project files stamped by unity-init (CLAUDE.md, settings, gitignore/attributes, DESIGN.md) |
 | `.mcp.json` | Registers `unityMCP` (HTTP, localhost:8080), `blender` (uvx blender-mcp, telemetry off), and `elevenlabs` (uvx elevenlabs-mcp, key via `${ELEVENLABS_API_KEY}`) |
 
-There is deliberately no "2D agent" / "3D agent" / "workflow master": domain knowledge lives in skills loaded into the main working context, and orchestration is the main conversation's job — agents exist only where verbose work compresses to a short report.
+There is deliberately no "2D agent" / "3D agent" / "workflow master" persona: domain knowledge lives in skills loaded into whoever needs it, agents exist only where verbose work compresses to a short report, and orchestration is codified as *structure* — the `agentic-workflows` skill (when to fan out at all, and the editor-exclusivity rule that organizes gamedev orchestration: one editor, one driver, serialize editor work structurally) plus the two shipped workflow scripts. Narrow single-purpose agents delegate reliably; persona zoos don't (Anthropic subagent guidance + 2026 practitioner writeups).
 
 ## Requirements
 
@@ -100,11 +112,13 @@ All keys are bring-your-own and entered **by you** — never in chat, never writ
 - The `.sh` scripts are untested on real macOS/Linux machines (authored on Windows, syntax-checked only) — issues welcome.
 - If a `uvx`-launched server fails to start on Windows, ensure `uv` is on PATH; as a last resort wrap the command as `cmd /c uvx …` in a project-level `.mcp.json` override.
 - Blender server choice (2026-07): ahujasid/blender-mcp (24k★, active, PolyHaven/Sketchfab/Hyper3D built in) over the official Blender Lab MCP server (Blender 5.1+, no asset-library integrations yet) — revisit when the official server gains asset sourcing.
+- The Workflow tool (used by `/unity-kit:review` and `/unity-kit:qa-sweep`) needs Claude Code ≥ 2.1.154 on a paid plan; both commands degrade to sequential Agent-tool phases without it.
+- Unity's official first-party MCP server (pre-release, inside `com.unity.ai.assistant` 2.0.0-pre.1, per-client Accept/Deny gate) is a watch item: whether it can coexist with CoplayDev's bridge is unresolved, and the AI Assistant package has a known DLL conflict with MCP for Unity — this plugin stays on the CoplayDev backend for now.
 - Audio landscape (2026-07): there is no "blender-mcp of audio" — DAW-control MCPs are immature (best: Audacity-MCP, 52★, Audacity 3.x only). ElevenLabs official MCP + unity-mcp's `generate_audio` (stable since v10.1.0) + CC0 packs cover the pipeline instead. Suno wrappers deliberately skipped (unofficial APIs, litigation, subscription-bound rights).
 
 ## Prior art & positioning (surveyed 2026-07)
 
-No maintained, marketplace-installable plugin combines project init + verify loop + conventions + scene/asset work on top of CoplayDev's unity-mcp; the official Anthropic plugin marketplaces contain no gamedev entries. Ideas adopted from the ecosystem: scene/prefab text-edit guards and bounded verify-fix loops (everything-claude-unity), test-first bug fixing (nowsprinting/unity-coding-skills). Roadmap candidates: a router that loads skills based on detected project packages (awesome-gamedev-agent-skills pattern), bundling a version-pinned Unity API docs MCP, and a submission to the community marketplace.
+No maintained, marketplace-installable plugin combines project init + verify loop + conventions + scene/asset work on top of CoplayDev's unity-mcp; the official Anthropic plugin marketplaces contain no gamedev entries. Ideas adopted from the ecosystem: scene/prefab text-edit guards and bounded verify-fix loops (everything-claude-unity), test-first bug fixing (nowsprinting/unity-coding-skills), headless CLI test running as a CI complement to in-editor MCP verification (Dev-GOM/unity-dev-toolkit — none of the plugins surveyed 2026-07 combined both), the TITAN playtest loop shape (arXiv:2509.22170: state abstraction → filtered actions → stall-triggered reflection → bug oracles), and evidence-not-verdicts QA reporting (arXiv:2501.11782: wrong AI verdicts make human reviewers worse than no AI). Roadmap candidates: a router that loads skills based on detected project packages (awesome-gamedev-agent-skills pattern), bundling a version-pinned Unity API docs MCP, shipping a Monitor (experimental plugin component) that tails Editor.log/MCP status, a Meshy skill+MCP asset-gen surface (meshy-dev precedent), and a submission to the community marketplace.
 
 ## License
 

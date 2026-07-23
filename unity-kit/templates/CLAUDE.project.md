@@ -19,4 +19,7 @@
 - Don't install Unity AI Assistant (DLL conflict with MCP for Unity).
 
 ## Verify loop (after any C# or asset change)
-Use the `unity-verify` skill: console clean → relevant tests green → play-mode smoke when behavior should visibly work. Only report done after verification, and say exactly what was verified.
+Use the `unity-verify` skill: console clean → relevant tests green → play-mode smoke when behavior should visibly work. Only report done after verification, and say exactly what was verified. Tests without the editor (CI, pre-push): `unity-ci` skill.
+
+## Orchestration (subagents / workflows / teams)
+The editor is **one exclusive resource** — never let two agents drive it concurrently; serialize editor work structurally (serial phases, one owner), parallelize only file/analysis/external work. Before any long or unattended run, do the `agentic-workflows` skill's preflight (allowlist the run's MCP tools, git checkpoint, report contract). Orchestrated agents report claims-with-evidence, not verdicts.
