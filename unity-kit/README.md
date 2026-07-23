@@ -16,6 +16,7 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 | `unity-scene` | Scene/GameObject/prefab/asset work through MCP tools; custom-tool extension path |
 | `unity-animation` | Animator state machines, blend trees, 2D frame/rig pipelines, animation events, tweening |
 | `unity-dots` | ECS + Burst + Jobs — when DOTS is (and isn't) worth it, and how to write it correctly |
+| `unity-dots-migration` | GameObject→ECS conversion: the gate, migration order, hybrid view bridges, and the 2D-rendering / SubScene-stripping traps |
 | `unity-packages` | Official registry via `manage_packages`, OpenUPM scoped registries, git-URL packages, vetting |
 | `unity-build` | Player builds via `manage_build`, with headless CLI fallback |
 | `unity-assets` | Asset generation: Unity `asset_gen` tools + the Blender pipeline (PolyHaven/Hyper3D/Sketchfab) |

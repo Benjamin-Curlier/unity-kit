@@ -9,7 +9,7 @@ description: ECS (Entities), Burst, and the C# Job System — when to use DOTS, 
 DOTS pays off for **mass simulation**: thousands of projectiles/agents/cells updated uniformly. For a typical indie game it is the wrong default — MonoBehaviours are simpler, tooling-complete, and fast enough. Adopting DOTS is an architectural commitment (different scene workflow, different debugging, smaller ecosystem). **Confirm with the user before introducing it**, and prefer the middle path where it fits: plain **C# Jobs + Burst** for a hot loop inside an otherwise MonoBehaviour game (no ECS required).
 
 ## Packages
-`com.unity.entities` (pulls Burst/Collections/Mathematics), `com.unity.entities.graphics` (rendering), `com.unity.physics` (only if DOTS-simulated physics is needed). Install via `manage_packages`; expect long compile + domain reloads.
+`com.unity.entities` (pulls Burst/Collections/Mathematics), `com.unity.entities.graphics` (rendering), `com.unity.physics` (only if DOTS-simulated physics is needed). On Unity 6000.4+ these are **editor-embedded core packages versioned with the editor** (6.5 on 6000.5) — add by name via `manage_packages`, never pin a registry version; pre-6000.4 editors use the registry 1.x line. Expect long compile + domain reloads. Converting an existing GameObject project? Use **unity-dots-migration** for the order and the hybrid bridges.
 
 ## Core patterns
 - Components: `IComponentData` structs, blittable, no managed references, no methods with state. Tags are empty structs.
