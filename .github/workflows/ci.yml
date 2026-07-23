@@ -61,3 +61,15 @@ jobs:
         run: |
           for f in unity-kit/scripts/*.sh; do bash -n "$f"; done
           echo "bash syntax OK"
+
+      - name: Workflow script syntax
+        run: |
+          # The Workflow runtime wraps the script body in an async function (top-level
+          # return/await are legal there) — replicate that before node --check.
+          for f in unity-kit/workflows/*.js; do
+            { echo 'async function __wf(args, budget, agent, parallel, pipeline, phase, log, workflow) {'
+              sed 's/^export //' "$f"
+              echo '}'; } > /tmp/wf-check.mjs
+            node --check /tmp/wf-check.mjs || { echo "syntax error in $f"; exit 1; }
+          done
+          echo "workflow scripts OK"

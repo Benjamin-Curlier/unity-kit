@@ -1,6 +1,6 @@
 # unity-kit — Claude Code plugin marketplace
 
-A Claude Code plugin for Unity game development: project init from a prompt, editor automation via [MCP for Unity](https://github.com/CoplayDev/unity-mcp), a verify loop, Unity C#/scene/animation/DOTS skills, asset pipelines (in-Unity generation + [blender-mcp](https://github.com/ahujasid/blender-mcp)), and research/asset-scout/modeling agents.
+A Claude Code plugin for Unity game development: project init from a prompt, editor automation via [MCP for Unity](https://github.com/CoplayDev/unity-mcp), a verify loop, Unity C#/scene/animation/DOTS skills, asset pipelines (in-Unity generation + [blender-mcp](https://github.com/ahujasid/blender-mcp)), research/asset-scout/modeling/playtest agents, headless CI test running, and agentic workflows (multi-lens review, multi-scenario playtest sweeps).
 
 **→ Full documentation: [unity-kit/README.md](unity-kit/README.md)**
 

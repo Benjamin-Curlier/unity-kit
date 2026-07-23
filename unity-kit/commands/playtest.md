@@ -10,4 +10,4 @@ Playtest the current project's game per the unity-playtest skill, all three tier
 
 If the user reports input doing nothing, run the skill's diagnosis order first (half-switched Active Input Handling → zero `InputSystem.devices` is the classic cause; it needs a verified editor restart via unity-launch).
 
-Stop play mode when done. Report exactly what was pressed, asserted, and seen — including test counts and what the screenshots show. $ARGUMENTS
+Stop play mode when done. Report exactly what was pressed, asserted, and seen — including test counts and what the screenshots show. For multi-scenario coverage (regression sweeps, pre-build gates), use `/unity-kit:qa-sweep` instead — it plans scenarios and runs them as serial sessions with bug oracles. $ARGUMENTS

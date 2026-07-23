@@ -5,7 +5,7 @@ description: Verify Unity work end-to-end — wait for recompile, read console e
 
 # Unity verify loop
 
-Requires the Unity editor running with MCP for Unity connected (`unityMCP` server). If tools fail, use the **unity-launch** skill first — do not claim verification happened.
+Requires the Unity editor running with MCP for Unity connected (`unityMCP` server). If tools fail, use the **unity-launch** skill first — do not claim verification happened. (No editor and none wanted — CI, pre-push, parallel lanes? The **unity-ci** skill runs the test suite headless instead; compile+console checks still need the editor.)
 
 ## 1. Compile check (always, after any .cs change)
 

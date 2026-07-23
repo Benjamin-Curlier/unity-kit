@@ -58,6 +58,17 @@ Single-player smokes prove nothing about a client/server game — every smoke ru
 - Screenshots: capture a client's Game view at checkpoints as usual; state-vs-pixels mismatches (Tier 3) are twice as common under prediction.
 - **Real-build smoke**: run the dedicated server + N client exes on one machine (Run In Background makes unfocused clients keep pumping); give one client `-thinclients 1` so an in-process bot army drives gameplay with zero human input. A server-side cadence log line (ticks/s + unit/connection counts) turns the server log into the assertion surface: connections appear, gameplay counts move, killing a client drops exactly its entities (connection-cleanup proof). Capture *per-window* screenshots of the client exes (`PrintWindow` by PID — never full-desktop, which grabs the user's personal screen); two clients screenshotting the same fight also proves per-viewer presentation (e.g. team colors inverted per perspective).
 
+## Structured sessions — the loop shape that finds bugs
+
+For anything beyond a quick smoke, run Tier 2/3 as a **structured session** (the shape validated by 2025's game-QA agent research — state abstraction, filtered actions, reflection, oracles):
+
+- **Plan before play**: a falsifiable goal, probe expressions with expected **buckets** (score: 0 / 1–5 / >5 — buckets make "no progress" detectable), an action list of ≤6 intent-level moves, and an action budget.
+- **Act only from the planned list** — improvised actions turn a playtest into a wander.
+- **Reflection trigger**: 3 consecutive actions with no measurable probe change → stop acting, write the stall hypothesis down (it's evidence — often the bug), optionally one alternative action, end the session.
+- **Oracles always armed**: console exceptions (every 2–3 actions), the action budget as runaway cutoff, and screenshot-vs-state mismatch (Tier 3).
+
+The `playtest-qa` agent runs one such session and returns the evidence bundle; `/unity-kit:qa-sweep` plans and runs N of them serially (one editor, one driver — see agentic-workflows).
+
 ## When input "does nothing" for the user — diagnosis order
 
 1. `InputSystem.devices.Count == 0` at runtime (with `Keyboard.current == null`) while legacy `Input.*` **throws** → **half-switched editor**: Active Input Handling was changed but the editor never truly restarted. Do a verified restart (unity-launch: old PID must die first). This state arises whenever the post-switch "restart" silently failed.
@@ -68,3 +79,5 @@ Single-player smokes prove nothing about a client/server game — every smoke ru
 ## Report
 
 State what was pressed, what was asserted, what the screenshot shows: "InputTestFixture: W turns, reversal rejected, restart-on-key — 3/3 green; live session: 12 ticks probed, ate 2 food, score 2, no exceptions; screenshot shows snake+HUD" — not "playtested, works".
+
+**Evidence, not verdicts.** Controlled studies show a wrong AI verdict makes the human reviewer *worse* than no AI at all — so report claims with their supporting evidence (probe values, console lines, what the screenshot shows) and let the human adjudicate. Where evidence is thin or contradictory, say so instead of rounding to pass/fail.
