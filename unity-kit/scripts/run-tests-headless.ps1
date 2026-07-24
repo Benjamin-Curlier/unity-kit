@@ -1,15 +1,18 @@
 # unity-kit: run Unity Test Framework tests headless (no editor GUI).
-# Usage: .\run-tests-headless.ps1 [-ProjectPath .] [-Platform EditMode|PlayMode|Both] [-TestFilter <regex>] [-NoGraphics]
+# Usage: .\run-tests-headless.ps1 [-ProjectPath .] [-Platform EditMode|PlayMode|Both] [-TestFilter <regex>] [-NoGraphics] [-AcceptApiUpdate]
 # Exit code: 0 all green, 2 tests failed, 3 run did not complete (compile error, license, lock, crash).
 # Preconditions that WILL bite (see unity-ci skill): the editor GUI must be CLOSED for this project
 # (Temp/UnityLockfile), the machine's Unity license must be activated, and the first run on a clean
 # checkout imports Library (minutes, not seconds).
+# -AcceptApiUpdate is OPT-IN: it lets Unity's API updater REWRITE tracked source files during the
+# run — never use it on a dirty dev checkout.
 param(
     [string]$ProjectPath = ".",
     [ValidateSet("EditMode", "PlayMode", "Both")]
     [string]$Platform = "Both",
     [string]$TestFilter = "",
-    [switch]$NoGraphics
+    [switch]$NoGraphics,
+    [switch]$AcceptApiUpdate
 )
 
 # NOTE: precondition failures write to stderr and `exit 3` — do NOT route them through
@@ -33,6 +36,21 @@ if (Test-Path $lock) {
     try { Remove-Item $lock -Force -ErrorAction Stop }
     catch { Fail3 "The editor has this project open (Temp/UnityLockfile is held). Close it, or use in-editor run_tests via MCP instead." }
 }
+# TOCTOU guard: a JUST-launching editor may not hold (or have written) the lockfile yet — the
+# delete-probe above races it. Look for a live Unity.exe whose command line names this project,
+# then re-check the lockfile after a beat before committing to the run.
+# Case-insensitive, separator-normalized, boundary-checked match: "C:\proj" must not
+# match a different project at "C:\proj2", and forward-slash launches must still match.
+$projPattern = [regex]::Escape($ProjectPath.Replace('/', '\')) + '($|[\\"'' ])'
+$launching = @(Get-CimInstance Win32_Process -Filter "Name='Unity.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and [regex]::IsMatch($_.CommandLine.Replace('/', '\'), $projPattern, 'IgnoreCase') })
+if ($launching.Count -gt 0) {
+    Fail3 "A Unity editor process with this project path is already running (PID $($launching[0].ProcessId)) even though the lockfile was free - it is likely still launching. Close it, or use in-editor run_tests via MCP."
+}
+Start-Sleep -Seconds 2
+if (Test-Path $lock) {
+    Fail3 "Temp/UnityLockfile reappeared while preparing the run - an editor is launching for this project. Close it and retry."
+}
 
 # Locate the editor: default Hub path first, then find-unity.ps1 (lists all editors as JSON).
 $unity = "C:\Program Files\Unity\Hub\Editor\$version\Editor\Unity.exe"
@@ -53,6 +71,12 @@ New-Item -ItemType Directory -Force $resultsDir | Out-Null
 $platforms = if ($Platform -eq "Both") { @("EditMode", "PlayMode") } else { @($Platform) }
 $worst = 0
 
+# Snapshot tracked-file state so we can warn if the run itself rewrites source
+# (API updater, importers). $null when not a git repo. TestResults/ is this script's
+# own output — excluded, or every first run would cry wolf.
+function Get-GitSnapshot { @(git -C $ProjectPath status --porcelain 2>$null) | Where-Object { $_ -notmatch 'TestResults/' } }
+$gitBefore = Get-GitSnapshot
+
 foreach ($p in $platforms) {
     $xml = Join-Path $resultsDir "$($p.ToLower())-results.xml"
     $log = Join-Path $resultsDir "$($p.ToLower()).log"
@@ -63,8 +87,11 @@ foreach ($p in $platforms) {
         "-batchmode", "-projectPath", "`"$ProjectPath`"",
         "-runTests", "-testPlatform", $p,
         "-testResults", "`"$xml`"", "-logFile", "`"$log`"",
-        "-accept-apiupdate", "-forgetProjectPath"
+        "-forgetProjectPath"
     )
+    # OPT-IN: the API updater rewrites tracked source; without the flag an outdated-API project
+    # fails the run (exit 3) instead of being silently modified.
+    if ($AcceptApiUpdate) { $unityArgs += "-accept-apiupdate" }
     # -nographics is safe for EditMode; PlayMode tests that touch rendering need a (hidden) window.
     if ($NoGraphics -or $p -eq "EditMode") { $unityArgs += "-nographics" }
     if ($TestFilter) { $unityArgs += @("-testFilter", "`"$TestFilter`"") }
@@ -93,5 +120,15 @@ foreach ($p in $platforms) {
         $code = 3
     }
     if ($code -ne 0) { $worst = [Math]::Max($worst, $code) }
+}
+
+# Warn when the run modified tracked files (API updater with -AcceptApiUpdate, importers):
+# a "test" run that rewrites source in a dev checkout must never go unnoticed.
+$gitAfter = Get-GitSnapshot
+if (($gitAfter -join "`n") -ne ($gitBefore -join "`n")) {
+    [Console]::Error.WriteLine("WARNING: the test run modified the working tree (API updater?). git status changes vs before the run:")
+    $before = @($gitBefore); $after = @($gitAfter)
+    ($after | Where-Object { $before -notcontains $_ }) | ForEach-Object { [Console]::Error.WriteLine("  + $_") }
+    ($before | Where-Object { $after -notcontains $_ }) | ForEach-Object { [Console]::Error.WriteLine("  - $_") }
 }
 exit $worst

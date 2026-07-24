@@ -36,9 +36,10 @@ Subagents inherit your allowlist; on a long run, **every non-allowlisted MCP cal
 
 1. **Allowlist the run's tools** for the session: `manage_editor`, `execute_code`, `manage_camera`, `refresh_unity`, plus whatever the plan touches (`manage_scene`, `manage_gameobject`, `manage_asset`, …). **Derive the exact rule prefix from this session's actual tool names first** — MCP rules are exact-match and the bridge's server name varies by registration: `mcp__unityMCP__*` (project `.mcp.json`), `mcp__UnityMCP__*` (a `claude mcp add` registration), or `mcp__plugin_unity-kit_unityMCP__*` (registered by this plugin). A rule with the wrong prefix matches nothing and the run stalls on prompts anyway. Prefer `.claude/settings.local.json` (git-ignored) for per-run grants; the scaffold's settings already allow the read-only tools plus `run_tests`/`manage_tools` under the common prefixes. Remove the grants afterwards if they were for the run, not the project.
 2. **Editor state**: bridge answers (`mcpforunity://editor/state`), console clean, `manage_tools` groups the run needs activated once.
-3. **Git checkpoint** before, commits at phase boundaries — an unattended run you can't roll back is a gamble, not a workflow.
-4. **Report contract**: every agent returns the same shape (status, files touched, tests run/passed, console errors, artifacts, and — for any agent that entered play mode — `playModeStopped`). Every play-mode enter is paired with a stop before the agent returns; a handoff with play mode still running is itself a reportable failure, because it poisons the next editor session. Structured output beats prose for the synthesis step.
-5. **Budgets in actions, not wall-clock**: the workflow runtime blocks wall-clock calls (`Date.now` throws — resume safety) — cap by action counts, agent counts, or the `budget` API, and put per-issue fix caps (3, per unity-verify) in agent prompts.
+3. **Claim the editor (advisory ownership file)**: write `~/.unity-mcp/claude-editor-owner-<project>.json` (`<project>` = the project folder name; matching is on the fields, not the filename) containing `{"project_path": "<abs project root, forward slashes>", "session_id": "<this session's id>", "task": "<one line>"}` before the run; touch it at phase boundaries (its mtime is the heartbeat) and delete it when the run ends. If a file for this project already exists with a fresh mtime (<15 min) and a different session id, do NOT launch — another session owns the editor; surface the conflict to the user. The plugin's session_start hook warns incoming sessions the same way. Advisory only — it cannot stop a rogue actor, but it turns silent editor contention into an explicit conflict.
+4. **Git checkpoint** before, commits at phase boundaries — an unattended run you can't roll back is a gamble, not a workflow.
+5. **Report contract**: every agent returns the same shape (status, files touched, tests run/passed, console errors, artifacts, and — for any agent that entered play mode — `playModeStopped`). Every play-mode enter is paired with a stop before the agent returns; a handoff with play mode still running is itself a reportable failure, because it poisons the next editor session. Structured output beats prose for the synthesis step.
+6. **Budgets in actions, not wall-clock**: the workflow runtime blocks wall-clock calls (`Date.now` throws — resume safety) — cap by action counts, agent counts, or the `budget` API, and put per-issue fix caps (3, per unity-verify) in agent prompts.
 
 ## Domain reloads will happen mid-run
 
@@ -50,10 +51,10 @@ A controlled study (arXiv:2501.11782, preprint): AI assistance lifts human defec
 
 ## Plugin workflows
 
-`${CLAUDE_PLUGIN_ROOT}/workflows/` ships ready-to-run scripts — invoke via `Workflow({scriptPath: "<plugin>/workflows/<name>.js", args: {...}})`, or copy into the project's `.claude/workflows/` to customize (they become repo-shared named workflows):
+`${CLAUDE_PLUGIN_ROOT}/workflows/` ships ready-to-run scripts — invoke via `Workflow({scriptPath: "<plugin>/workflows/<name>.js", args: {...}})`, or copy into the project's `.claude/workflows/` to customize (they become repo-shared named workflows). If `${CLAUDE_PLUGIN_ROOT}` arrives unexpanded (you see the literal variable text), the scripts live in the plugin cache — glob for `workflows/gamedev-review.js` under `~/.claude/plugins/` and use that absolute path:
 
-- **gamedev-review.js** — four review lenses, adversarial 3-vote verification per finding. Read-only: editor not required, fully parallel-safe. `/unity-kit:review`
-- **playtest-sweep.js** — N planned scenarios, serial play sessions (TITAN shape: state probes → pre-filtered intent actions → stall-triggered reflection → bug oracles), overlapped analysis. Editor required + preflight above. `/unity-kit:qa-sweep`
+- **gamedev-review.js** — four review lenses, triage merge, adversarial refutation votes per finding (severity-scaled). Editor not required, parallel-safe; run artifacts persist under `Docs/review-runs/<runId>/`. `/unity-kit:review`
+- **playtest-sweep.js** — N planned scenarios, serial play sessions (TITAN shape: state probes → pre-filtered intent actions → stall-triggered reflection → bug oracles), overlapped analysis. Editor required + preflight above; run artifacts (plan, probe/console JSONL, screenshots, report) persist under `Docs/playtest-runs/<runId>/`. `/unity-kit:qa-sweep`
 
 ## Team mode (agent teams / multiple sessions)
 

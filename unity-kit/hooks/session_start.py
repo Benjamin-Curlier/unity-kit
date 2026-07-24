@@ -16,10 +16,50 @@ import sys
 import time
 
 STALE_AFTER_SEC = 120  # a live editor heartbeats the status file far more often than this
+OWNER_FRESH_SEC = 900  # an orchestrated run touches its owner file at phase boundaries
 
 
 def is_unity_project():
     return os.path.isfile(os.path.join("ProjectSettings", "ProjectVersion.txt"))
+
+
+def read_hook_input():
+    """Hook input JSON from stdin (contains session_id); {} when run manually."""
+    try:
+        if sys.stdin.isatty():
+            return {}
+        raw = sys.stdin.read()
+        return json.loads(raw) if raw.strip() else {}
+    except Exception:
+        return {}
+
+
+def foreign_editor_owner(session_id):
+    """A fresh advisory editor-ownership file written by a DIFFERENT Claude session, or None.
+
+    Written per the agentic-workflows skill: ~/.unity-mcp/claude-editor-owner-<project>.json
+    with {"project_path", "session_id", "task"}; mtime is the heartbeat. Matching is on the
+    project_path field, not the filename.
+    """
+    cwd_fwd = os.getcwd().replace("\\", "/").rstrip("/")
+    for path in glob.glob(os.path.expanduser("~/.unity-mcp/claude-editor-owner-*.json")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if (data.get("project_path") or "").replace("\\", "/").rstrip("/") != cwd_fwd:
+            continue
+        try:
+            age = time.time() - os.path.getmtime(path)
+        except OSError:
+            continue
+        owner_id = data.get("session_id")
+        if age < OWNER_FRESH_SEC and owner_id and owner_id != session_id:
+            data["_path"] = path
+            data["_age_sec"] = int(age)
+            return data
+    return None
 
 
 def unity_process_running():
@@ -98,5 +138,13 @@ elif unity_process_running():
 else:
     print("[unity-kit] No Unity editor process detected — unityMCP tools will fail. "
           "Use the unity-launch skill to start the editor for this project before editor work.")
+
+owner = foreign_editor_owner(read_hook_input().get("session_id"))
+if owner:
+    print(f"[unity-kit] WARNING: another Claude session (id {owner.get('session_id')}, "
+          f"heartbeat {owner['_age_sec']}s ago, task: {owner.get('task', 'unknown')}) claims this "
+          f"project's editor via {owner['_path']} — do not drive the editor (play mode, scenes, "
+          "tests) until that run finishes, the file goes stale (>15 min), or the user removes it "
+          "(see the agentic-workflows skill, unattended-run preflight).")
 
 sys.exit(0)

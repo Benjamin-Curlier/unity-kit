@@ -4,6 +4,11 @@
 
 # Blind-spot study — v0.6.1 (2026-07-23)
 
+> **Status (v0.7.0, 2026-07-24):** all Tier 1 fixes (groups A–D), all five Tier 2
+> features, and the four documented-limitation additions are implemented — see the
+> v0.7.0 commit series. Tier 3 (process re-validation) remains open; it is execution
+> work, not code, and should run against the shipped v0.7.0 plugin cache.
+
 ## Method
 Findings come from a 6-lens adversarial hunt (cold-start, hostile-input, economics, evidence-chain, multi-actor, process-meta), with every claim independently verified by 2 votes against the shipped v0.6.1 plugin cache and source repo. Verification statuses below (confirmed = both votes confirmed the mechanism in code; partial = mechanism confirmed but scenario/severity qualified) are claims for the maintainer to adjudicate, not decisions.
 

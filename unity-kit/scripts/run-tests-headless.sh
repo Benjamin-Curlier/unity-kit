@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 # unity-kit: run Unity Test Framework tests headless (no editor GUI). macOS/Linux port of run-tests-headless.ps1.
-# Usage: ./run-tests-headless.sh [--project-path .] [--platform EditMode|PlayMode|Both] [--test-filter <regex>] [--no-graphics]
+# Usage: ./run-tests-headless.sh [--project-path .] [--platform EditMode|PlayMode|Both] [--test-filter <regex>] [--no-graphics] [--accept-apiupdate]
 # Exit code: 0 all green, 2 tests failed, 3 run did not complete (compile error, license, lock, crash).
 # Preconditions that WILL bite (see unity-ci skill): the editor GUI must be CLOSED for this project
 # (Temp/UnityLockfile), the machine's Unity license must be activated, and the first run on a clean
 # checkout imports Library (minutes, not seconds).
+# --accept-apiupdate is OPT-IN: it lets Unity's API updater REWRITE tracked source files during the
+# run — never use it on a dirty dev checkout. On display-less Linux (no $DISPLAY/$WAYLAND_DISPLAY),
+# PlayMode automatically gets -nographics (a windowed run would crash the runner).
 set -uo pipefail
 
 PROJECT_PATH="."
 PLATFORM="Both"
 TEST_FILTER=""
 NO_GRAPHICS=0
+ACCEPT_APIUPDATE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project-path) PROJECT_PATH="${2:?--project-path needs a value}"; shift 2 ;;
     --platform)     PLATFORM="${2:?--platform needs a value}"; shift 2 ;;
     --test-filter)  TEST_FILTER="${2:?--test-filter needs a value}"; shift 2 ;;
     --no-graphics)  NO_GRAPHICS=1; shift ;;
+    --accept-apiupdate) ACCEPT_APIUPDATE=1; shift ;;
     *) echo "unknown arg: $1" >&2; exit 3 ;;
   esac
 done
@@ -30,6 +35,20 @@ VERSION="$(sed -n 's/^m_EditorVersion: *//p' "$VERSION_FILE" | tr -d '[:space:]'
 # POSIX has no mandatory lock to probe, so existence is the best signal we have.
 if [[ -f "$PROJECT_PATH/Temp/UnityLockfile" ]]; then
   echo "Temp/UnityLockfile exists - either the editor has this project open (close it, or use in-editor run_tests via MCP), or a previous Unity run crashed (delete the file and retry)." >&2
+  exit 3
+fi
+# TOCTOU guard: a JUST-launching editor may not have written the lockfile yet. Look for a live
+# Unity *binary* (first token ends in /Unity or Unity.exe) whose command line names this project,
+# then re-check the lock after a beat before committing. Captured into a variable first —
+# a quit-early grep in a pipeline would die by SIGPIPE and, under pipefail, hide a real match.
+PROC_SCAN="$(ps -eo args= 2>/dev/null | grep -F -- "$PROJECT_PATH" | grep -v -e run-tests-headless || true)"
+if printf '%s\n' "$PROC_SCAN" | grep -Eq '^[^[:space:]]*/Unity(\.exe)?([[:space:]]|$)'; then
+  echo "A Unity editor process with this project path is already running (lockfile not written yet?). Close it, or use in-editor run_tests via MCP." >&2
+  exit 3
+fi
+sleep 2
+if [[ -f "$PROJECT_PATH/Temp/UnityLockfile" ]]; then
+  echo "Temp/UnityLockfile appeared while preparing the run - an editor is launching for this project. Close it and retry." >&2
   exit 3
 fi
 
@@ -55,6 +74,12 @@ case "$PLATFORM" in
   *) echo "bad --platform: $PLATFORM" >&2; exit 3 ;;
 esac
 
+# Snapshot tracked-file state so we can warn if the run itself rewrites source
+# (API updater, importers). Empty when not a git repo. TestResults/ is this script's
+# own output — excluded, or every first run would cry wolf.
+git_snapshot() { git -C "$PROJECT_PATH" status --porcelain 2>/dev/null | grep -v 'TestResults/' || true; }
+GIT_BEFORE="$(git_snapshot)"
+
 WORST=0
 for P in "${PLATFORMS[@]}"; do
   LOWER="$(echo "$P" | tr '[:upper:]' '[:lower:]')"
@@ -63,9 +88,18 @@ for P in "${PLATFORMS[@]}"; do
   # Stale artifacts from a previous run would be reported as this run's results.
   rm -f "$XML" "$LOG"
   ARGS=(-batchmode -projectPath "$PROJECT_PATH" -runTests -testPlatform "$P"
-        -testResults "$XML" -logFile "$LOG" -accept-apiupdate -forgetProjectPath)
-  # -nographics is safe for EditMode; PlayMode tests that touch rendering need a real (hidden) window.
-  if [[ "$NO_GRAPHICS" == 1 || "$P" == "EditMode" ]]; then ARGS+=(-nographics); fi
+        -testResults "$XML" -logFile "$LOG" -forgetProjectPath)
+  # OPT-IN: the API updater rewrites tracked source; without the flag an outdated-API project
+  # fails the run (exit 3) instead of being silently modified.
+  if [[ "$ACCEPT_APIUPDATE" == 1 ]]; then ARGS+=(-accept-apiupdate); fi
+  # -nographics is safe for EditMode; PlayMode tests that touch rendering need a real (hidden) window —
+  # but on a display-less Linux box (CI runner) there is no window to have: add it or the run crashes.
+  AUTO_NOGFX=0
+  if [[ "$P" == "PlayMode" && "$(uname -s)" == "Linux" && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+    AUTO_NOGFX=1
+    echo "[$P] no \$DISPLAY/\$WAYLAND_DISPLAY - adding -nographics (rendering-dependent PlayMode tests may fail; use xvfb-run for those)"
+  fi
+  if [[ "$NO_GRAPHICS" == 1 || "$AUTO_NOGFX" == 1 || "$P" == "EditMode" ]]; then ARGS+=(-nographics); fi
   if [[ -n "$TEST_FILTER" ]]; then ARGS+=(-testFilter "$TEST_FILTER"); fi
   # NOTE: no -quit — the test runner exits by itself; -quit can kill it mid-run.
   echo "[$P] Unity $VERSION -> $XML"
@@ -89,4 +123,12 @@ EOF
   fi
   [[ $CODE -gt $WORST ]] && WORST=$CODE
 done
+
+# Warn when the run modified tracked files (API updater with --accept-apiupdate, importers):
+# a "test" run that rewrites source in a dev checkout must never go unnoticed.
+GIT_AFTER="$(git_snapshot)"
+if [[ "$GIT_AFTER" != "$GIT_BEFORE" ]]; then
+  echo "WARNING: the test run modified the working tree (API updater?). Changed vs before the run:" >&2
+  diff <(printf '%s\n' "$GIT_BEFORE") <(printf '%s\n' "$GIT_AFTER") | grep '^[<>]' | sed 's/^/  /' >&2
+fi
 exit $WORST

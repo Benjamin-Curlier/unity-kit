@@ -54,8 +54,8 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 
 | Workflow | Does |
 |---|---|
-| `gamedev-review.js` | Scope → four review lenses in parallel → 3 adversarial votes per finding → synthesized claims-with-evidence report. Read-only |
-| `playtest-sweep.js` | Scenario planning → **serial** play sessions (one editor, one driver) with overlapped analysis → sweep report. Editor + allowlist preflight required |
+| `gamedev-review.js` | Scope (+git provenance) → four review lenses in parallel → triage merge → adversarial refutation votes (3 per medium/high finding, 1 per low) → claims-with-evidence report + `Docs/review-runs/<runId>/` artifacts. No editor needed |
+| `playtest-sweep.js` | Scenario planning (discrete/continuous gate) → **serial** play sessions (one editor, one driver) with overlapped analysis → sweep report + `Docs/playtest-runs/<runId>/` artifacts. Editor + allowlist preflight required |
 
 **Infrastructure**:
 
