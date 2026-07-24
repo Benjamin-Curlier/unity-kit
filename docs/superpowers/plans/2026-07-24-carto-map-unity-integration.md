@@ -2866,6 +2866,12 @@ namespace Carto.Unity.Editor
                 int shown = Mathf.Min(10, _lastResult.Warnings.Count);
                 for (int i = 0; i < shown; i++) Debug.LogWarning("[Carto] " + _lastResult.Warnings[i]);
             }
+            catch (System.Exception ex) when (ex is System.Xml.XmlException || ex is System.FormatException)
+            {
+                // corrupt/invalid source file → clean error, not a stack trace
+                Debug.LogError("[Carto] Import failed — corrupt or invalid file: " + ex.Message);
+                _lastResult = null;
+            }
             finally
             {
                 EditorUtility.ClearProgressBar();
