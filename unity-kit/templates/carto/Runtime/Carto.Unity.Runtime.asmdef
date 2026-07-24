@@ -1,0 +1,16 @@
+{
+    "name": "Carto.Unity.Runtime",
+    "rootNamespace": "Carto.Unity",
+    "references": [
+        "Carto.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
