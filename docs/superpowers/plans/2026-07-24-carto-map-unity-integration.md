@@ -2311,6 +2311,52 @@ namespace Snake2D.Tests.Carto
                 Object.DestroyImmediate(go);
             }
         }
+
+        [Test]
+        public void BuildFrom_Rebuild_FreesPreviousMeshes()
+        {
+            var data = CartoMapData.Bake(
+                PlaniXmlReader.Read(CartoPlaniReaderTests.AsStream(CartoPlaniReaderTests.SampleXml)), "sample");
+            var go = new GameObject("map");
+            try
+            {
+                var renderer = go.AddComponent<CartoMapRenderer>();
+                renderer.BuildFrom(data);
+                var oldMeshes = new System.Collections.Generic.List<Mesh>();
+                foreach (var mf in go.GetComponentsInChildren<MeshFilter>())
+                    oldMeshes.Add(mf.sharedMesh);
+                Assert.Greater(oldMeshes.Count, 0);
+
+                renderer.BuildFrom(data);
+                foreach (var m in oldMeshes)
+                    Assert.IsTrue(m == null, "previous-generation mesh must be destroyed on rebuild");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void BuildFrom_LayerZOrder_BuildingsInFrontOfRoadsInFrontOfWater()
+        {
+            var data = CartoMapData.Bake(
+                PlaniXmlReader.Read(CartoPlaniReaderTests.AsStream(CartoPlaniReaderTests.SampleXml)), "sample");
+            var go = new GameObject("map");
+            try
+            {
+                var renderer = go.AddComponent<CartoMapRenderer>();
+                renderer.BuildFrom(data);
+                var root = go.transform.Find("__CartoLayers");
+                float Z(string n) => root.Find(n).localPosition.z;
+                Assert.Less(Z("Buildings"), Z("RoadsHighway")); // smaller z = closer to the −Z camera
+                Assert.Less(Z("RoadsHighway"), Z("Water"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
     }
 }
 ```
@@ -2370,6 +2416,7 @@ namespace Carto.Unity
 
         public void BuildFrom(CartoMapData data)
         {
+            if (data == null) { Debug.LogWarning("[Carto] BuildFrom(null) ignored", this); return; }
             Clear();
             var root = new GameObject(RootName) { hideFlags = HideFlags.DontSave };
             root.transform.SetParent(transform, false);
@@ -2402,9 +2449,25 @@ namespace Carto.Unity
             {
                 var child = transform.GetChild(i);
                 if (child.name != RootName) continue;
+                // destroying a GameObject does NOT destroy the meshes its filters reference —
+                // free the previous generation explicitly or every rebuild leaks it
+                foreach (var mf in child.GetComponentsInChildren<MeshFilter>())
+                    if (mf.sharedMesh != null) DestroyOwned(mf.sharedMesh);
                 if (Application.isPlaying) Destroy(child.gameObject);
                 else DestroyImmediate(child.gameObject);
             }
+        }
+
+        void OnDestroy()
+        {
+            Clear();
+            if (_fallbackMaterial != null) DestroyOwned(_fallbackMaterial);
+        }
+
+        static void DestroyOwned(Object o)
+        {
+            if (Application.isPlaying) Destroy(o);
+            else DestroyImmediate(o);
         }
 
         static (SysV2[] outer, SysV2[][] holes) AreaGeom<T>(LocalArea<T> a) => (a.Outer, a.Holes);
@@ -2412,7 +2475,7 @@ namespace Carto.Unity
         static List<(SysV2[] points, float width)> RoadLines(
             CartoMapData data, System.Predicate<RoadInfo> match, float minWidth)
         {
-            var list = new List<(SysV2[], float)>();
+            var list = new List<(SysV2[] points, float width)>();
             foreach (var r in data.Roads)
                 if (match(r.Info))
                     list.Add((r.Points, Mathf.Max(r.Info.Width, minWidth)));
@@ -2467,6 +2530,12 @@ namespace Carto.Unity
             if (_fallbackMaterial == null)
             {
                 var shader = Shader.Find("Universal Render Pipeline/Unlit");
+                if (shader == null)
+                {
+                    Debug.LogError("[Carto] URP Unlit shader not found — assign baseMaterial " +
+                                   "(player builds strip unreferenced shaders)", this);
+                    return null;
+                }
                 _fallbackMaterial = new Material(shader) { hideFlags = HideFlags.DontSave };
             }
             return _fallbackMaterial;
