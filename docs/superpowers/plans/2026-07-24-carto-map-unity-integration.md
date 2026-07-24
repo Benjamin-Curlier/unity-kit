@@ -1738,16 +1738,20 @@ namespace Snake2D.Tests.Carto
         }
 
         [Test]
-        public void HoleSharingVertexWithOuter_DegradesGracefully_NoHang()
+        public void HoleSharingVertexWithOuter_DroppedAndCounted_NoCorruption()
         {
-            // Real cadastral holes can touch the outer ring; must not hang, crash, or corrupt.
+            // Real cadastral holes can touch the outer ring. A coincident vertex cannot be
+            // bridged without a self-touching polygon (ear-clip area inflation), so the
+            // hole is dropped (counted) and the feature fills over it.
             var outer = new[] { new V2(0, 0), new V2(4, 0), new V2(4, 4), new V2(0, 4) };
             var hole = new[] { new V2(0, 0), new V2(1, 0.5f), new V2(0.5f, 1) };
             var verts = new List<V2>();
             var idx = new List<int>();
-            var ok = PolygonTriangulator.Triangulate(outer, new[] { hole }, verts, idx, out _);
+            var ok = PolygonTriangulator.Triangulate(outer, new[] { hole }, verts, idx, out var dropped);
+            Assert.IsTrue(ok);
+            Assert.AreEqual(1, dropped);
             Assert.AreEqual(0, idx.Count % 3);
-            if (ok) Assert.LessOrEqual(TriangleAreaSum(verts, idx), 16f + 1e-3f);
+            Assert.AreEqual(16f, TriangleAreaSum(verts, idx), 1e-3f);
         }
 
         [Test]
@@ -1839,6 +1843,15 @@ namespace Carto.Core
 
         static List<Vector2> MergeHole(List<Vector2> ring, List<Vector2> hole, ref int droppedHoles)
         {
+            // A hole vertex sitting exactly on the ring (outer or an already-merged hole)
+            // cannot be bridged without producing a self-touching polygon — any bridge
+            // choice still leaves that coincident point visited twice at non-adjacent
+            // positions, which the ear-clipper's bridge-duplicate exception can mistake
+            // for a legitimate ear and overcount area. Drop it rather than risk that.
+            for (int i = 0; i < hole.Count; i++)
+                for (int j = 0; j < ring.Count; j++)
+                    if (Same(hole[i], ring[j])) { droppedHoles++; return ring; }
+
             int hi = 0;
             for (int i = 1; i < hole.Count; i++) if (hole[i].X > hole[hi].X) hi = i;
             var h = hole[hi];
