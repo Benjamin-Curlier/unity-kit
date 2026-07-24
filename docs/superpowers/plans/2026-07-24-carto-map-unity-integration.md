@@ -463,6 +463,11 @@ namespace Snake2D.Tests.Carto
             Assert.AreEqual(-0.40392536331497525, geo.CornerNE.Lon, 1e-12);
             Assert.AreEqual(47.389699733997716, geo.CornerSE.Lat, 1e-12);
             Assert.AreEqual(-0.6679261259036828, geo.CornerSW.Lon, 1e-12);
+            Assert.AreEqual(47.55947681859172, geo.CornerNE.Lat, 1e-12);
+            Assert.AreEqual(-0.41227943000535916, geo.CornerSE.Lon, 1e-12);
+            Assert.AreEqual(47.39518877466679, geo.CornerSW.Lat, 1e-12);
+            Assert.AreEqual(1.5057104143025681 * 12825, geo.WidthMeters, 1e-6);
+            Assert.AreEqual(1.5057104143025402 * 12544, geo.HeightMeters, 1e-6);
         }
 
         [Test]
@@ -472,6 +477,18 @@ namespace Snake2D.Tests.Carto
             Assert.AreEqual(2.0, geo.PixelMetreX, 1e-12);
             Assert.AreEqual(0, geo.DimensionImageX);
             Assert.AreEqual(0.0, geo.CornerNW.Lon, 1e-12);
+        }
+
+        [Test]
+        public void Read_UnknownNestedElementsAndComments_AreSkipped()
+        {
+            var geo = GeoReference.Read(AsStream(
+                "<GeoReference><!-- comment --><Foo><Bar/></Foo>" +
+                "<PixelMetreX>2.0</PixelMetreX><!-- c2 --><DimensionImageX>10</DimensionImageX>" +
+                "</GeoReference>"));
+            Assert.AreEqual(2.0, geo.PixelMetreX, 1e-12);
+            Assert.AreEqual(10, geo.DimensionImageX);
+            Assert.AreEqual(20.0, geo.WidthMeters, 1e-9);
         }
     }
 }
@@ -508,7 +525,12 @@ namespace Carto.Core
             double lonNO = 0, latNO = 0, lonNE = 0, latNE = 0;
             double lonSE = 0, latSE = 0, lonSO = 0, latSO = 0;
 
-            var settings = new XmlReaderSettings { IgnoreWhitespace = true };
+            var settings = new XmlReaderSettings
+            {
+                IgnoreWhitespace = true,
+                IgnoreComments = true,
+                IgnoreProcessingInstructions = true
+            };
             using (var r = XmlReader.Create(stream, settings))
             {
                 r.MoveToContent();
@@ -517,6 +539,7 @@ namespace Carto.Core
                 while (r.NodeType == XmlNodeType.Element)
                 {
                     string name = r.Name;
+                    if (!IsKnownField(name)) { r.Skip(); continue; } // unknown (incl. nested) → next sibling
                     string text = r.ReadElementContentAsString(); // consumes element, lands on next sibling
                     switch (name)
                     {
@@ -533,7 +556,6 @@ namespace Carto.Core
                         case "LatitudeSE": latSE = D(text); break;
                         case "LongitudeSO": lonSO = D(text); break;
                         case "LatitudeSO": latSO = D(text); break;
-                        // unknown elements: ignored (leniency)
                     }
                 }
             }
@@ -543,6 +565,23 @@ namespace Carto.Core
             g.CornerSE = new GeoPoint(lonSE, latSE);
             g.CornerSW = new GeoPoint(lonSO, latSO);
             return g;
+        }
+
+        static bool IsKnownField(string name)
+        {
+            switch (name)
+            {
+                case "PixelMetreX": case "PixelMetreY":
+                case "DimensionImageX": case "DimensionImageY":
+                case "Echelle":
+                case "LongitudeNO": case "LatitudeNO":
+                case "LongitudeNE": case "LatitudeNE":
+                case "LongitudeSE": case "LatitudeSE":
+                case "LongitudeSO": case "LatitudeSO":
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         static double D(string s) =>
