@@ -2696,7 +2696,9 @@ namespace Carto.Unity.Editor
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.08f, 0.09f, 0.11f);
             var span = data.BoundsMax - data.BoundsMin;
-            cam.orthographicSize = Mathf.Max(span.Y * 0.55f, 100f);
+            float halfH = span.Y * 0.55f;
+            float halfW = cam.aspect > 0.01f ? span.X * 0.55f / cam.aspect : halfH;
+            cam.orthographicSize = Mathf.Max(Mathf.Max(halfH, halfW), 100f); // fit both axes at any view aspect
             cam.farClipPlane = 100f;
             camGo.transform.position = new Vector3(
                 (data.BoundsMin.X + data.BoundsMax.X) * 0.5f,
@@ -2758,6 +2760,8 @@ namespace Carto.Unity.Editor
                 AssetDatabase.CreateAsset(mat, matPath);
             }
             mat.mainTexture = tex; // URP Unlit [MainTexture] = _BaseMap
+            EditorUtility.SetDirty(mat);
+            AssetDatabase.SaveAssets(); // persist the texture ref — machine-local folder, but must survive editor restarts
             quad.GetComponent<MeshRenderer>().sharedMaterial = mat;
         }
     }
@@ -2854,7 +2858,12 @@ namespace Carto.Unity.Editor
             try
             {
                 _lastResult = CartoImportPipeline.Import(_xmlPath, _geoPath, _rasterPath,
-                    progress: (msg, t) => EditorUtility.DisplayProgressBar("Carto Import", msg, t));
+                    progress: (msg, t) =>
+                    {
+                        // cancel takes effect between phases; the parse itself is one opaque call
+                        if (EditorUtility.DisplayCancelableProgressBar("Carto Import", msg, t))
+                            throw new System.OperationCanceledException("Import canceled");
+                    });
                 sw.Stop();
                 var d = _lastResult.Data;
                 Debug.Log(string.Format(
@@ -2866,16 +2875,44 @@ namespace Carto.Unity.Editor
                 int shown = Mathf.Min(10, _lastResult.Warnings.Count);
                 for (int i = 0; i < shown; i++) Debug.LogWarning("[Carto] " + _lastResult.Warnings[i]);
             }
-            catch (System.Exception ex) when (ex is System.Xml.XmlException || ex is System.FormatException)
+            catch (System.OperationCanceledException)
             {
-                // corrupt/invalid source file → clean error, not a stack trace
-                Debug.LogError("[Carto] Import failed — corrupt or invalid file: " + ex.Message);
+                Debug.Log("[Carto] Import canceled");
+                _lastResult = null;
+            }
+            catch (System.Exception ex) when (ex is System.Xml.XmlException || ex is System.FormatException || ex is IOException)
+            {
+                // corrupt/missing/locked source file → clean error, not a stack trace
+                Debug.LogError("[Carto] Import failed: " + ex.Message);
                 _lastResult = null;
             }
             finally
             {
                 EditorUtility.ClearProgressBar();
             }
+        }
+    }
+}
+```
+
+- [ ] **Step 10.4b: Create `Assets/Carto/Editor/CartoTexturePreprocessor.cs`** — without this, the 161-megapixel raster is decoded TWICE (default-2048 import on Refresh, then a full re-decode at 8192 via SaveAndReimport); the preprocessor makes the FIRST import land at 8192 and the pipeline's post-guard becomes a no-op:
+
+```csharp
+using UnityEditor;
+
+namespace Carto.Unity.Editor
+{
+    /// <summary>
+    /// First-import settings for rasters copied into Assets/CartoMaps — avoids the
+    /// default-2048 decode followed by a second full 8192 decode of a 161 MP TIF.
+    /// </summary>
+    sealed class CartoTexturePreprocessor : AssetPostprocessor
+    {
+        void OnPreprocessTexture()
+        {
+            if (!assetPath.StartsWith(CartoImportPipeline.DefaultOutputFolder + "/")) return;
+            var ti = (TextureImporter)assetImporter;
+            if (ti.maxTextureSize < 8192) ti.maxTextureSize = 8192;
         }
     }
 }
@@ -2981,16 +3018,17 @@ git commit -m "test(carto): machine-local Angers2 end-to-end integration (auto-i
 
 - [ ] **Step 12.2: Execute the imports headlessly** via `mcp__UnityMCP__execute_code` (activate the `scripting_ext` tool group via `manage_tools` if needed). Task 11 established that `Angers2.xml` has roads/bridges/vegetation but NO buildings/water/rail sections; `Angers5.xml` is known to contain BATIMENTS. Import BOTH and build a scene per file — the richer one (buildings present) is the primary demo:
 
+Run each import and each scene build as its OWN `execute_code` call (timeout hygiene — the first raster import dominates wall-clock; per-call state does not persist, so re-Import is cheap after the raster asset exists):
+
 ```csharp
+// call 1
 var dir = @"C:\Users\bencu\unityProjects\snake-unity-kit\Carto\carte angers\";
-var r2 = Carto.Unity.Editor.CartoImportPipeline.Import(dir + "Angers2.xml", dir + "angersZUB.geo", dir + "angersZUB.tif");
-var s2 = Carto.Unity.Editor.CartoSceneBuilder.BuildScene(r2);
-var r5 = Carto.Unity.Editor.CartoImportPipeline.Import(dir + "Angers5.xml", dir + "angersZUB.geo", dir + "angersZUB.tif");
-var s5 = Carto.Unity.Editor.CartoSceneBuilder.BuildScene(r5);
-UnityEngine.Debug.Log("[Carto] scenes: " + s2 + " | " + s5 +
-    " — A2 roads " + r2.Data.Roads.Count + "/veg " + r2.Data.Vegetation.Count + "/bld " + r2.Data.Buildings.Count +
-    "; A5 roads " + r5.Data.Roads.Count + "/veg " + r5.Data.Vegetation.Count + "/bld " + r5.Data.Buildings.Count);
-return "done";
+var r = Carto.Unity.Editor.CartoImportPipeline.Import(dir + "Angers2.xml", dir + "angersZUB.geo", dir + "angersZUB.tif");
+return "A2 roads " + r.Data.Roads.Count + " veg " + r.Data.Vegetation.Count + " bld " + r.Data.Buildings.Count;
+// call 2: same for Angers5.xml
+// call 3: re-run Import for the chosen file (raster already imported → fast) then
+//         var s = Carto.Unity.Editor.CartoSceneBuilder.BuildScene(r); return s;
+// call 4: same for the other file if both scenes are wanted
 ```
 
 Expected console: two `[Carto] Imported …` summary lines, then the scenes line. The scene saved LAST (CartoAngers5) is the open one — screenshot that if it has roads+vegetation+buildings; otherwise reopen CartoAngers2. Raster texture import (12825×12544 tif) may take a minute on the first import only.
@@ -3066,6 +3104,9 @@ Reusable importer for the PLANI_TYPE3/"carto" map format family (see the
    and the source dataset folder if it lives inside the project.
 5. Requirements: URP (uses the `Universal Render Pipeline/Unlit` shader),
    .NET Standard 2.1 API level (the Unity default).
+6. Note: a committed demo scene references machine-local `Assets/CartoMaps/`
+   artifacts (baked bytes, materials, raster) — on a fresh clone it opens with
+   missing references until a map is re-imported locally. Expected, not a bug.
 
 ## Versioning
 
