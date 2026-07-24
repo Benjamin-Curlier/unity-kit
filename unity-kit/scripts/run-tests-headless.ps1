@@ -39,8 +39,11 @@ if (Test-Path $lock) {
 # TOCTOU guard: a JUST-launching editor may not hold (or have written) the lockfile yet — the
 # delete-probe above races it. Look for a live Unity.exe whose command line names this project,
 # then re-check the lockfile after a beat before committing to the run.
+# Case-insensitive, separator-normalized, boundary-checked match: "C:\proj" must not
+# match a different project at "C:\proj2", and forward-slash launches must still match.
+$projPattern = [regex]::Escape($ProjectPath.Replace('/', '\')) + '($|[\\"'' ])'
 $launching = @(Get-CimInstance Win32_Process -Filter "Name='Unity.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -and $_.CommandLine.Contains($ProjectPath) })
+    Where-Object { $_.CommandLine -and [regex]::IsMatch($_.CommandLine.Replace('/', '\'), $projPattern, 'IgnoreCase') })
 if ($launching.Count -gt 0) {
     Fail3 "A Unity editor process with this project path is already running (PID $($launching[0].ProcessId)) even though the lockfile was free - it is likely still launching. Close it, or use in-editor run_tests via MCP."
 }
@@ -69,8 +72,10 @@ $platforms = if ($Platform -eq "Both") { @("EditMode", "PlayMode") } else { @($P
 $worst = 0
 
 # Snapshot tracked-file state so we can warn if the run itself rewrites source
-# (API updater, importers). $null when not a git repo.
-$gitBefore = git -C $ProjectPath status --porcelain 2>$null
+# (API updater, importers). $null when not a git repo. TestResults/ is this script's
+# own output — excluded, or every first run would cry wolf.
+function Get-GitSnapshot { @(git -C $ProjectPath status --porcelain 2>$null) | Where-Object { $_ -notmatch 'TestResults/' } }
+$gitBefore = Get-GitSnapshot
 
 foreach ($p in $platforms) {
     $xml = Join-Path $resultsDir "$($p.ToLower())-results.xml"
@@ -119,7 +124,7 @@ foreach ($p in $platforms) {
 
 # Warn when the run modified tracked files (API updater with -AcceptApiUpdate, importers):
 # a "test" run that rewrites source in a dev checkout must never go unnoticed.
-$gitAfter = git -C $ProjectPath status --porcelain 2>$null
+$gitAfter = Get-GitSnapshot
 if (($gitAfter -join "`n") -ne ($gitBefore -join "`n")) {
     [Console]::Error.WriteLine("WARNING: the test run modified the working tree (API updater?). git status changes vs before the run:")
     $before = @($gitBefore); $after = @($gitAfter)

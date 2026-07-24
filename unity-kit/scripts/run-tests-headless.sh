@@ -38,10 +38,11 @@ if [[ -f "$PROJECT_PATH/Temp/UnityLockfile" ]]; then
   exit 3
 fi
 # TOCTOU guard: a JUST-launching editor may not have written the lockfile yet. Look for a live
-# Unity *binary* whose command line names this project (excluding this script and the pipeline's
-# own greps), then re-check the lock after a beat before committing.
-if ps -eo args= 2>/dev/null | grep -F -- "$PROJECT_PATH" | grep -v -e grep -e run-tests-headless \
-    | grep -Eq '(^|[/ ])Unity(\.exe)?([[:space:]]|$)'; then
+# Unity *binary* (first token ends in /Unity or Unity.exe) whose command line names this project,
+# then re-check the lock after a beat before committing. Captured into a variable first —
+# a quit-early grep in a pipeline would die by SIGPIPE and, under pipefail, hide a real match.
+PROC_SCAN="$(ps -eo args= 2>/dev/null | grep -F -- "$PROJECT_PATH" | grep -v -e run-tests-headless || true)"
+if printf '%s\n' "$PROC_SCAN" | grep -Eq '^[^[:space:]]*/Unity(\.exe)?([[:space:]]|$)'; then
   echo "A Unity editor process with this project path is already running (lockfile not written yet?). Close it, or use in-editor run_tests via MCP." >&2
   exit 3
 fi
@@ -74,8 +75,10 @@ case "$PLATFORM" in
 esac
 
 # Snapshot tracked-file state so we can warn if the run itself rewrites source
-# (API updater, importers). Empty when not a git repo.
-GIT_BEFORE="$(git -C "$PROJECT_PATH" status --porcelain 2>/dev/null)"
+# (API updater, importers). Empty when not a git repo. TestResults/ is this script's
+# own output — excluded, or every first run would cry wolf.
+git_snapshot() { git -C "$PROJECT_PATH" status --porcelain 2>/dev/null | grep -v 'TestResults/' || true; }
+GIT_BEFORE="$(git_snapshot)"
 
 WORST=0
 for P in "${PLATFORMS[@]}"; do
@@ -123,7 +126,7 @@ done
 
 # Warn when the run modified tracked files (API updater with --accept-apiupdate, importers):
 # a "test" run that rewrites source in a dev checkout must never go unnoticed.
-GIT_AFTER="$(git -C "$PROJECT_PATH" status --porcelain 2>/dev/null)"
+GIT_AFTER="$(git_snapshot)"
 if [[ "$GIT_AFTER" != "$GIT_BEFORE" ]]; then
   echo "WARNING: the test run modified the working tree (API updater?). Changed vs before the run:" >&2
   diff <(printf '%s\n' "$GIT_BEFORE") <(printf '%s\n' "$GIT_AFTER") | grep '^[<>]' | sed 's/^/  /' >&2

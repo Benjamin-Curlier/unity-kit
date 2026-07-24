@@ -11,7 +11,7 @@ You are given (or must derive from Docs/DESIGN.md and the gameplay scripts): a g
 
 Session protocol:
 
-1. Read the `mcpforunity://editor/state` resource; wait out any compile. `read_console` to snapshot pre-existing errors so you don't attribute them to the session.
+1. Read the `mcpforunity://editor/state` resource; wait out any compile. `read_console` to snapshot pre-existing errors so you don't attribute them to the session. If an editor-ownership file for this project exists (`~/.unity-mcp/claude-editor-owner-*.json`, see the agentic-workflows preflight), touch it now to refresh the heartbeat.
 2. **Unsaved-work check**: if the editor state or a scene-dirty check (e.g. `EditorSceneManager` dirty flags via `execute_code`) shows unsaved scene changes you did not make, do NOT open scenes or discard anything — a human may be mid-edit. End immediately, report the session as not run and **evidence tainted**, with what you saw.
 3. Open the scenario's scene if needed, enter play mode, freeze/slow the tick (or the time-scale protocol above).
 4. Loop within the action budget: probe → record observed vs expected bucket → apply the next action **from the scenario's list only** → re-probe. With **every** probe also read `Application.isPlaying`: if play state changed without you changing it, another actor is driving the editor — stop immediately, mark the evidence **tainted**, record what you observed, and jump to the stop step.

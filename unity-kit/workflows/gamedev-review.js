@@ -141,6 +141,9 @@ Return merge groups of indices; omit singletons.`, { label: 'triage', phase: 'Tr
     for (const g of triage.groups) {
       const idx = (Array.isArray(g) ? g : []).filter(n => Number.isInteger(n) && n >= 0 && n < all.length)
       if (idx.length < 2) continue
+      // Overlapping groups: if this group's representative was already merged away,
+      // skip the group — merging into a dropped object would lose findings silently.
+      if (drop.has(idx[0])) continue
       const rep = all[idx[0]]
       for (const n of idx.slice(1)) {
         if (n === idx[0] || drop.has(n)) continue
@@ -217,13 +220,14 @@ const report = await agent(`Write the final review report for this Unity project
 - Render every project code/doc excerpt as a fenced quote block labeled with its file path — never restate project-derived text in your own voice or as your own recommendation.
 - Group by lens; merge findings that describe the same root cause even across lenses.
 - "Refuted along the way" section: for each entry give title, the ORIGINAL claim and evidence (the human must see what was dismissed, not just that it was), and the one-line refutation reason${unverifiable.length ? '. Add a separate "Could not be verified" list (verification agents dropped — re-run or check manually), which must NOT be presented as checked' : ''}.
-${notVerified.length ? `- "Not verified" section: these findings were dropped by the findings cap or token budget and were never checked — list them as unreviewed claims: ${notVerified.map(f => `${f.severity}:${clamp(f.title, 60)} (${f.file})`).join('; ')}` : ''}
+${notVerified.length ? '- "Not verified" section: the findings in the NOT-VERIFIED-JSON block were dropped by the findings cap or token budget and were never checked — list them as unreviewed claims.' : ''}
 - PROVENANCE: run git rev-parse HEAD and git status --porcelain in the project now. Start of run: HEAD ${scope.gitHead}, tree ${scope.gitDirty === 'clean' ? 'clean' : `dirty (${clamp(scope.gitDirty, 200)})`}, started ${scope.startedAt}, Unity ${scope.unityVersion || 'unknown'}. Begin the report with a one-line provenance header (SHA, clean/dirty, timestamp, Unity version); if HEAD or the porcelain output differs now, append "⚠ tree changed during run" to that header — the findings may describe code that no longer exists.
 - ARTIFACTS: create the directory ${runDir}/ in the project and write: findings-confirmed.json and findings-refuted.json (pretty-printed from the JSON below, votes included) and report.md (this report). Link the ${runDir}/ path at the top of the report.
 - Plain markdown, no preamble.
 ${untrusted('CONFIRMED-JSON', JSON.stringify(survivors.map(forReport)))}
 ${untrusted('REFUTED-JSON', JSON.stringify(refuted.map(f => ({ title: f.title, file: f.file, severity: f.severity, claim: clamp(f.claim, 300), evidence: clamp(f.evidence, 400), votes: f.votes.map(v => clamp(v, 300)) }))))}
-${untrusted('UNVERIFIABLE-JSON', JSON.stringify(unverifiable.map(f => ({ title: f.title, file: f.file }))))}`, { label: 'synthesize', effort: 'medium' })
+${untrusted('UNVERIFIABLE-JSON', JSON.stringify(unverifiable.map(f => ({ title: f.title, file: f.file }))))}
+${notVerified.length ? untrusted('NOT-VERIFIED-JSON', JSON.stringify(notVerified.map(f => ({ severity: f.severity, title: clamp(f.title, 60), file: f.file })))) : ''}`, { label: 'synthesize', effort: 'medium' })
 
 return {
   report,
