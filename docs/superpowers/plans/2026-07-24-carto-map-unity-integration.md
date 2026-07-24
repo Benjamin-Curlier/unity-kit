@@ -144,7 +144,7 @@ namespace Carto.Core
         public int Situation;      // SITUATION
         public int LaneCount;      // NBR_VOIES
         public int Separation;     // SEPARATION
-        public int Surface;        // REVETEMENT
+        public int Pavement;       // REVETEMENT (pavement/surfacing type code — NOT an area)
         public int Importance;     // IMPORTANCE
         public int Category;       // CATEGORIE
         public float WidthMax;     // LARGEUR_MAX
@@ -887,7 +887,7 @@ namespace Carto.Core
             Situation = IA(r, "SITUATION"),
             LaneCount = IA(r, "NBR_VOIES"),
             Separation = IA(r, "SEPARATION"),
-            Surface = IA(r, "REVETEMENT"),
+            Pavement = IA(r, "REVETEMENT"),
             Importance = IA(r, "IMPORTANCE"),
             Category = IA(r, "CATEGORIE"),
             WidthMax = F(r, "LARGEUR_MAX"),
@@ -1427,8 +1427,8 @@ namespace Carto.Core
 
         // ---- per-type info IO (field order = FeatureInfo.cs declaration order) --
 
-        static void WriteRoad(BinaryWriter w, RoadInfo i) { w.Write(i.Name ?? ""); w.Write(i.Length); w.Write(i.Situation); w.Write(i.LaneCount); w.Write(i.Separation); w.Write(i.Surface); w.Write(i.Importance); w.Write(i.Category); w.Write(i.WidthMax); w.Write(i.Width); w.Write(i.MassMax); w.Write(i.Direction); }
-        static RoadInfo ReadRoad(BinaryReader r) => new RoadInfo { Name = r.ReadString(), Length = r.ReadSingle(), Situation = r.ReadInt32(), LaneCount = r.ReadInt32(), Separation = r.ReadInt32(), Surface = r.ReadInt32(), Importance = r.ReadInt32(), Category = r.ReadInt32(), WidthMax = r.ReadSingle(), Width = r.ReadSingle(), MassMax = r.ReadSingle(), Direction = r.ReadInt32() };
+        static void WriteRoad(BinaryWriter w, RoadInfo i) { w.Write(i.Name ?? ""); w.Write(i.Length); w.Write(i.Situation); w.Write(i.LaneCount); w.Write(i.Separation); w.Write(i.Pavement); w.Write(i.Importance); w.Write(i.Category); w.Write(i.WidthMax); w.Write(i.Width); w.Write(i.MassMax); w.Write(i.Direction); }
+        static RoadInfo ReadRoad(BinaryReader r) => new RoadInfo { Name = r.ReadString(), Length = r.ReadSingle(), Situation = r.ReadInt32(), LaneCount = r.ReadInt32(), Separation = r.ReadInt32(), Pavement = r.ReadInt32(), Importance = r.ReadInt32(), Category = r.ReadInt32(), WidthMax = r.ReadSingle(), Width = r.ReadSingle(), MassMax = r.ReadSingle(), Direction = r.ReadInt32() };
 
         static void WriteBridge(BinaryWriter w, BridgeInfo i) { w.Write(i.Name ?? ""); w.Write(i.Length); w.Write(i.ClearanceBelow); w.Write(i.WidthMax); w.Write(i.MassMax); }
         static BridgeInfo ReadBridge(BinaryReader r) => new BridgeInfo { Name = r.ReadString(), Length = r.ReadSingle(), ClearanceBelow = r.ReadSingle(), WidthMax = r.ReadSingle(), MassMax = r.ReadSingle() };
