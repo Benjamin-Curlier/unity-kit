@@ -1366,7 +1366,8 @@ namespace Carto.Core
     /// Baked map: all layers in local meters (x east, y north, origin = map center,
     /// 1 unit = 1 m). Binary format "CMAP" v1: little-endian, counts int32, coords
     /// float32 pairs, strings BinaryWriter-style (7-bit length prefix + UTF-8).
-    /// Field order per Info struct = declaration order in FeatureInfo.cs.
+    /// Field order per Info struct = declaration order in FeatureInfo.cs — a reorder
+    /// requires bumping FormatVersion.
     /// </summary>
     public sealed class CartoMapData
     {
