@@ -1313,14 +1313,16 @@ namespace Snake2D.Tests.Carto
             Assert.AreEqual("sample", back.SourceName);
             Assert.AreEqual(data.CenterLon, back.CenterLon, 0.0);
             Assert.AreEqual(data.Roads.Count, back.Roads.Count);
-            Assert.AreEqual(data.Roads[0].Info.Name, back.Roads[0].Info.Name);
-            Assert.AreEqual(data.Roads[0].Info.Importance, back.Roads[0].Info.Importance);
-            Assert.AreEqual(data.Roads[0].Points.Length, back.Roads[0].Points.Length);
-            Assert.AreEqual(data.Roads[0].Points[2].X, back.Roads[0].Points[2].X); // exact float bits
+            // whole-struct value equality — all fields of each Info survive, not a sample
+            Assert.AreEqual(data.Roads[0].Info, back.Roads[0].Info);
+            Assert.AreEqual(data.Railways[0].Info, back.Railways[0].Info);
+            Assert.AreEqual(data.Vegetation[0].Info, back.Vegetation[0].Info);
+            Assert.AreEqual(data.Water[0].Info, back.Water[0].Info);
+            Assert.AreEqual(data.Buildings[0].Info, back.Buildings[0].Info);
+            CollectionAssert.AreEqual(data.Roads[0].Points, back.Roads[0].Points);       // exact float bits
+            CollectionAssert.AreEqual(data.Vegetation[0].Outer, back.Vegetation[0].Outer);
             Assert.AreEqual(data.Vegetation[0].Holes.Length, back.Vegetation[0].Holes.Length);
-            Assert.AreEqual(data.Vegetation[0].Holes[0][1].Y, back.Vegetation[0].Holes[0][1].Y);
-            Assert.AreEqual(data.Water[0].Info.Comment, back.Water[0].Info.Comment);
-            Assert.AreEqual(data.Buildings[0].Info.Levels, back.Buildings[0].Info.Levels);
+            CollectionAssert.AreEqual(data.Vegetation[0].Holes[0], back.Vegetation[0].Holes[0]);
             Assert.AreEqual(data.BoundsMax.X, back.BoundsMax.X);
         }
 
@@ -1329,6 +1331,24 @@ namespace Snake2D.Tests.Carto
         {
             var ms = new MemoryStream(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 });
             Assert.Throws<System.FormatException>(() => CartoMapData.Load(ms));
+        }
+
+        [Test]
+        public void Load_CorruptCounts_ThrowFormatException_NotOOM()
+        {
+            var ms = new MemoryStream();
+            BakeSample().Save(ms);
+            var bytes = ms.ToArray();
+            // First layer count (Roads) offset: magic(4)+version(2)+"sample"(1+6)+center(16)+bounds(16) = 45
+            const int roadsCountOffset = 45;
+
+            var huge = (byte[])bytes.Clone();
+            System.BitConverter.GetBytes(int.MaxValue).CopyTo(huge, roadsCountOffset);
+            Assert.Throws<System.FormatException>(() => CartoMapData.Load(new MemoryStream(huge)));
+
+            var negative = (byte[])bytes.Clone();
+            System.BitConverter.GetBytes(-5).CopyTo(negative, roadsCountOffset);
+            Assert.Throws<System.FormatException>(() => CartoMapData.Load(new MemoryStream(negative)));
         }
     }
 }
@@ -1526,6 +1546,18 @@ namespace Carto.Core
         static void WriteV2(BinaryWriter w, Vector2 v) { w.Write(v.X); w.Write(v.Y); }
         static Vector2 ReadV2(BinaryReader r) => new Vector2(r.ReadSingle(), r.ReadSingle());
 
+        // Counts come from untrusted bytes; a corrupt file must fail as FormatException,
+        // never as OutOfMemory/Overflow from pre-allocating a bogus size.
+        static int ReadCount(BinaryReader r, int minBytesPerItem)
+        {
+            int n = r.ReadInt32();
+            if (n < 0) throw new FormatException("Corrupt CMAP: negative count " + n);
+            var s = r.BaseStream;
+            if (s.CanSeek && (long)n * minBytesPerItem > s.Length - s.Position)
+                throw new FormatException("Corrupt CMAP: count " + n + " exceeds remaining data");
+            return n;
+        }
+
         static void WriteRing(BinaryWriter w, Vector2[] pts)
         {
             w.Write(pts.Length);
@@ -1534,7 +1566,7 @@ namespace Carto.Core
 
         static Vector2[] ReadRing(BinaryReader r)
         {
-            int n = r.ReadInt32();
+            int n = ReadCount(r, 8);
             var pts = new Vector2[n];
             for (int i = 0; i < n; i++) pts[i] = ReadV2(r);
             return pts;
@@ -1548,7 +1580,7 @@ namespace Carto.Core
 
         static List<LocalLine<T>> ReadLines<T>(BinaryReader r, Func<BinaryReader, T> ri)
         {
-            int n = r.ReadInt32();
+            int n = ReadCount(r, 1);
             var list = new List<LocalLine<T>>(n);
             for (int i = 0; i < n; i++)
                 list.Add(new LocalLine<T> { Info = ri(r), Points = ReadRing(r) });
@@ -1569,13 +1601,13 @@ namespace Carto.Core
 
         static List<LocalArea<T>> ReadAreas<T>(BinaryReader r, Func<BinaryReader, T> ri)
         {
-            int n = r.ReadInt32();
+            int n = ReadCount(r, 1);
             var list = new List<LocalArea<T>>(n);
             for (int i = 0; i < n; i++)
             {
                 var info = ri(r);
                 var outer = ReadRing(r);
-                var holes = new Vector2[r.ReadInt32()][];
+                var holes = new Vector2[ReadCount(r, 4)][];
                 for (int h = 0; h < holes.Length; h++) holes[h] = ReadRing(r);
                 list.Add(new LocalArea<T> { Info = info, Outer = outer, Holes = holes });
             }
