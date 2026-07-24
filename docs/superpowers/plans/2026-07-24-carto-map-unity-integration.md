@@ -1683,19 +1683,19 @@ namespace Snake2D.Tests.Carto
             return s;
         }
 
-        static (List<V2>, List<int>) Run(V2[] outer, V2[][] holes)
+        static (List<V2>, List<int>, int) Run(V2[] outer, V2[][] holes)
         {
             var verts = new List<V2>();
             var idx = new List<int>();
-            Assert.IsTrue(PolygonTriangulator.Triangulate(outer, holes, verts, idx));
+            Assert.IsTrue(PolygonTriangulator.Triangulate(outer, holes, verts, idx, out var dropped));
             Assert.AreEqual(0, idx.Count % 3);
-            return (verts, idx);
+            return (verts, idx, dropped);
         }
 
         [Test]
         public void UnitSquare_TwoTriangles_AreaOne()
         {
-            var (v, idx) = Run(new[] { new V2(0, 0), new V2(1, 0), new V2(1, 1), new V2(0, 1) }, null);
+            var (v, idx, _) = Run(new[] { new V2(0, 0), new V2(1, 0), new V2(1, 1), new V2(0, 1) }, null);
             Assert.AreEqual(6, idx.Count);
             Assert.AreEqual(1f, TriangleAreaSum(v, idx), 1e-4f);
         }
@@ -1703,7 +1703,7 @@ namespace Snake2D.Tests.Carto
         [Test]
         public void ClockwiseInput_Normalized_SameArea()
         {
-            var (v, idx) = Run(new[] { new V2(0, 1), new V2(1, 1), new V2(1, 0), new V2(0, 0) }, null);
+            var (v, idx, _) = Run(new[] { new V2(0, 1), new V2(1, 1), new V2(1, 0), new V2(0, 0) }, null);
             Assert.AreEqual(1f, TriangleAreaSum(v, idx), 1e-4f);
         }
 
@@ -1712,7 +1712,7 @@ namespace Snake2D.Tests.Carto
         {
             // L covering 3 unit squares: (0,0)-(2,0)-(2,1)-(1,1)-(1,2)-(0,2)
             var outer = new[] { new V2(0, 0), new V2(2, 0), new V2(2, 1), new V2(1, 1), new V2(1, 2), new V2(0, 2) };
-            var (v, idx) = Run(outer, null);
+            var (v, idx, _) = Run(outer, null);
             Assert.AreEqual(3f, TriangleAreaSum(v, idx), 1e-4f);
         }
 
@@ -1721,8 +1721,33 @@ namespace Snake2D.Tests.Carto
         {
             var outer = new[] { new V2(0, 0), new V2(4, 0), new V2(4, 4), new V2(0, 4) };
             var hole = new[] { new V2(1, 1), new V2(3, 1), new V2(3, 3), new V2(1, 3) };
-            var (v, idx) = Run(outer, new[] { hole });
+            var (v, idx, dropped) = Run(outer, new[] { hole });
             Assert.AreEqual(16f - 4f, TriangleAreaSum(v, idx), 1e-3f);
+            Assert.AreEqual(0, dropped);
+        }
+
+        [Test]
+        public void TwoDisjointHoles_AreaIsDifference_NoneDropped()
+        {
+            var outer = new[] { new V2(0, 0), new V2(8, 0), new V2(8, 8), new V2(0, 8) };
+            var h1 = new[] { new V2(1, 1), new V2(3, 1), new V2(3, 3), new V2(1, 3) };
+            var h2 = new[] { new V2(5, 5), new V2(7, 5), new V2(7, 7), new V2(5, 7) };
+            var (v, idx, dropped) = Run(outer, new[] { h1, h2 });
+            Assert.AreEqual(64f - 4f - 4f, TriangleAreaSum(v, idx), 1e-3f);
+            Assert.AreEqual(0, dropped);
+        }
+
+        [Test]
+        public void HoleSharingVertexWithOuter_DegradesGracefully_NoHang()
+        {
+            // Real cadastral holes can touch the outer ring; must not hang, crash, or corrupt.
+            var outer = new[] { new V2(0, 0), new V2(4, 0), new V2(4, 4), new V2(0, 4) };
+            var hole = new[] { new V2(0, 0), new V2(1, 0.5f), new V2(0.5f, 1) };
+            var verts = new List<V2>();
+            var idx = new List<int>();
+            var ok = PolygonTriangulator.Triangulate(outer, new[] { hole }, verts, idx, out _);
+            Assert.AreEqual(0, idx.Count % 3);
+            if (ok) Assert.LessOrEqual(TriangleAreaSum(verts, idx), 16f + 1e-3f);
         }
 
         [Test]
@@ -1757,11 +1782,16 @@ namespace Carto.Core
         /// Triangulates outer (any winding) minus holes. Appends the merged vertex
         /// list to outVerts and triangle indices (CCW) to outIndices.
         /// Returns false on degenerate input; both lists are cleared first either way.
+        /// droppedHoles counts holes that were degenerate or could not be bridged and
+        /// were filled over — callers must surface it, never swallow it.
+        /// Near-degenerate sliver triangles are expected and harmless in a flat fill.
+        /// Complexity ~O(n²) realistic, O(n³) pathological — import/load-time use only.
         /// </summary>
-        public static bool Triangulate(Vector2[] outer, Vector2[][] holes, List<Vector2> outVerts, List<int> outIndices)
+        public static bool Triangulate(Vector2[] outer, Vector2[][] holes, List<Vector2> outVerts, List<int> outIndices, out int droppedHoles)
         {
             outVerts.Clear();
             outIndices.Clear();
+            droppedHoles = 0;
             if (outer == null || outer.Length < 3) return false;
 
             var ring = new List<Vector2>(outer);
@@ -1772,17 +1802,21 @@ namespace Carto.Core
                 var holeList = new List<List<Vector2>>();
                 foreach (var h in holes)
                 {
-                    if (h == null || h.Length < 3) continue;
+                    if (h == null || h.Length < 3) { droppedHoles++; continue; }
                     var hl = new List<Vector2>(h);
                     if (SignedArea(hl) > 0) hl.Reverse(); // holes CW
                     holeList.Add(hl);
                 }
                 holeList.Sort((a, b) => MaxX(b).CompareTo(MaxX(a))); // rightmost hole first
-                foreach (var h in holeList) ring = MergeHole(ring, h);
+                foreach (var h in holeList) ring = MergeHole(ring, h, ref droppedHoles);
             }
 
             return EarClip(ring, outVerts, outIndices);
         }
+
+        /// <summary>Convenience overload when the caller does not track dropped holes.</summary>
+        public static bool Triangulate(Vector2[] outer, Vector2[][] holes, List<Vector2> outVerts, List<int> outIndices)
+            => Triangulate(outer, holes, outVerts, outIndices, out _);
 
         static float SignedArea(List<Vector2> ring)
         {
@@ -1803,7 +1837,7 @@ namespace Carto.Core
             return m;
         }
 
-        static List<Vector2> MergeHole(List<Vector2> ring, List<Vector2> hole)
+        static List<Vector2> MergeHole(List<Vector2> ring, List<Vector2> hole, ref int droppedHoles)
         {
             int hi = 0;
             for (int i = 1; i < hole.Count; i++) if (hole[i].X > hole[hi].X) hi = i;
@@ -1824,7 +1858,8 @@ namespace Carto.Core
                 for (int i = ri + 1; i < ring.Count; i++) merged.Add(ring[i]);
                 return merged;
             }
-            return ring; // unbridgeable hole (degenerate) — drop it, rendering-grade fallback
+            droppedHoles++;
+            return ring; // unbridgeable hole — dropped (counted), rendering-grade fallback
         }
 
         static bool SegmentClear(List<Vector2> ring, List<Vector2> hole, Vector2 a, Vector2 b)
@@ -1846,6 +1881,8 @@ namespace Carto.Core
             return ((d1 > 0) != (d2 > 0)) && ((d3 > 0) != (d4 > 0));
         }
 
+        // Effectively exact-equality at map scale (1e-6 m << float ULP at 10 km) — used only
+        // on bit-identical bridge duplicates; do NOT reuse as a geometric proximity tolerance.
         static bool Same(Vector2 a, Vector2 b) => (a - b).LengthSquared() < 1e-12f;
         static float Cross(Vector2 a, Vector2 b) => a.X * b.Y - a.Y * b.X;
 
@@ -2034,6 +2071,19 @@ namespace Snake2D.Tests.Carto
             foreach (var idx in mesh.triangles) Assert.Less(idx, 8);
             AssertAllTrianglesClockwise(mesh);
         }
+
+        [Test]
+        public void BuildPolygons_ReportsDroppedGeometry()
+        {
+            var good = new[] { new SysV2(0, 0), new SysV2(1, 0), new SysV2(1, 1), new SysV2(0, 1) };
+            var degenerate = new[] { new SysV2(0, 0), new SysV2(1, 1) };
+            var mesh = CartoMeshBuilder.BuildPolygons(
+                new List<(SysV2[] outer, SysV2[][] holes)> { (good, null), (degenerate, null) }, "test",
+                out var droppedHoles, out var droppedPolygons);
+            Assert.AreEqual(4, mesh.vertexCount);
+            Assert.AreEqual(0, droppedHoles);
+            Assert.AreEqual(1, droppedPolygons);
+        }
     }
 }
 ```
@@ -2105,15 +2155,25 @@ namespace Carto.Unity
         }
 
         public static Mesh BuildPolygons(IReadOnlyList<(SysV2[] outer, SysV2[][] holes)> areas, string name)
+            => BuildPolygons(areas, name, out _, out _);
+
+        public static Mesh BuildPolygons(IReadOnlyList<(SysV2[] outer, SysV2[][] holes)> areas, string name,
+            out int droppedHoles, out int droppedPolygons)
         {
+            droppedHoles = 0;
+            droppedPolygons = 0;
             var verts = new List<Vector3>();
             var tris = new List<int>();
             var polyVerts = new List<SysV2>();
             var polyIdx = new List<int>();
             foreach (var (outer, holes) in areas)
             {
-                if (!Carto.Core.PolygonTriangulator.Triangulate(outer, holes, polyVerts, polyIdx))
+                if (!Carto.Core.PolygonTriangulator.Triangulate(outer, holes, polyVerts, polyIdx, out var dropped))
+                {
+                    droppedPolygons++;
                     continue;
+                }
+                droppedHoles += dropped;
                 int baseIndex = verts.Count;
                 foreach (var p in polyVerts) verts.Add(new Vector3(p.X, p.Y, 0f));
                 // triangulator emits CCW → reverse to CW for visibility
@@ -2334,7 +2394,11 @@ namespace Carto.Unity
             List<(SysV2[] outer, SysV2[][] holes)> areas)
         {
             if (areas.Count == 0) return;
-            AttachMesh(root, name, z, color, CartoMeshBuilder.BuildPolygons(areas, name));
+            var mesh = CartoMeshBuilder.BuildPolygons(areas, name, out var droppedHoles, out var droppedPolygons);
+            if (droppedHoles > 0 || droppedPolygons > 0)
+                Debug.LogWarning("[Carto] " + name + ": " + droppedPolygons + " polygon(s) and " +
+                                 droppedHoles + " hole(s) could not be triangulated", this);
+            AttachMesh(root, name, z, color, mesh);
         }
 
         void AddPolylineLayer(GameObject root, string name, float z, Color color,
