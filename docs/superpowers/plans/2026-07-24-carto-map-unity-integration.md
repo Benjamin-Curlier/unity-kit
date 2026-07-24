@@ -2097,6 +2097,23 @@ namespace Snake2D.Tests.Carto
             Assert.AreEqual(0, droppedHoles);
             Assert.AreEqual(1, droppedPolygons);
         }
+
+        [Test]
+        public void BuildPolylines_Above65535Vertices_SwitchesToUInt32()
+        {
+            // 20,000 one-segment lines → 80,000 verts: crosses the 16-bit index boundary —
+            // the one Angers-scale behavior this layer owns.
+            var lines = new List<(SysV2[] points, float width)>(20000);
+            for (int i = 0; i < 20000; i++)
+                lines.Add((new[] { new SysV2(i, 0), new SysV2(i, 1) }, 1f));
+            var mesh = CartoMeshBuilder.BuildPolylines(lines, "big");
+            Assert.AreEqual(80000, mesh.vertexCount);
+            Assert.AreEqual(UnityEngine.Rendering.IndexFormat.UInt32, mesh.indexFormat);
+            int maxIndex = 0;
+            foreach (var idx in mesh.triangles) if (idx > maxIndex) maxIndex = idx;
+            Assert.Greater(maxIndex, 65535);
+            Assert.Less(maxIndex, 80000);
+        }
     }
 }
 ```
@@ -2205,8 +2222,7 @@ namespace Carto.Unity
             var mesh = new Mesh { name = name };
             if (verts.Count > 65535) mesh.indexFormat = IndexFormat.UInt32;
             mesh.SetVertices(verts);
-            mesh.SetTriangles(tris, 0);
-            mesh.RecalculateBounds();
+            mesh.SetTriangles(tris, 0); // calculateBounds defaults to true — no extra pass needed
             return mesh;
         }
     }
@@ -2423,7 +2439,12 @@ namespace Carto.Unity
 
         void AttachMesh(GameObject root, string name, float z, Color color, Mesh mesh)
         {
-            if (mesh.vertexCount == 0) return;
+            if (mesh.vertexCount == 0)
+            {
+                // don't orphan the empty native mesh
+                if (Application.isPlaying) Destroy(mesh); else DestroyImmediate(mesh);
+                return;
+            }
             var go = new GameObject(name) { hideFlags = HideFlags.DontSave };
             go.transform.SetParent(root.transform, false);
             go.transform.localPosition = new Vector3(0f, 0f, z);
@@ -2433,6 +2454,9 @@ namespace Carto.Unity
             var mpb = new MaterialPropertyBlock();
             mpb.SetColor(BaseColorId, color);
             mr.SetPropertyBlock(mpb);
+            // static map layers: free the CPU-side copy (~halves resident mesh memory);
+            // vertexCount metadata stays readable for tests/inspection
+            mesh.UploadMeshData(markNoLongerReadable: true);
         }
 
         Material _fallbackMaterial;
