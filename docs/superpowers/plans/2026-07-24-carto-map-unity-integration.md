@@ -2831,6 +2831,14 @@ PixelMetreX/Y (meters per pixel), DimensionImageX/Y (pixels), Echelle
 Angers example: 12825×12544 px at 1.5057 m/px ≈ 19.3 × 18.9 km. Unity cannot
 import `.gif` — use the `.tif` sibling; imported at max texture size 8192.
 
+## Projection (what the template bakes with)
+Tangent-plane equirectangular centered on the map's LIM midpoints (lon0, lat0):
+`x = (lon − lon0) · cos(lat0·π/180) · k`, `y = (lat − lat0) · k`, with
+`k = π/180 × 6 378 137 m` (WGS84 semi-major axis). Deterministic double math,
+float32 local-meter output; ~0.11 % E–W scale error at the map edge at Angers
+extent. Features AND raster corners go through the same instance, so relative
+layer registration is exact regardless of absolute error.
+
 ## Upstream pipeline (provenance)
 BD TOPO | VMAP1 | OSM | MGCP shapefiles → QGIS scripts (`Convert_*2MP.py`) →
 modèle-pivot layers (`MP_Zonaux` polygons / `MP_Lineaires` lines / `MP_Points`;
