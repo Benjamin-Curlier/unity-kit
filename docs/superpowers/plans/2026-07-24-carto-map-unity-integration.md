@@ -2979,18 +2979,21 @@ git commit -m "test(carto): machine-local Angers2 end-to-end integration (auto-i
 
 - [ ] **Step 12.1: Run the full carto suite once** — `test_filter: "Snake2D.Tests.Carto"`. Expected: all green (≈31 tests, 2 may be Ignored only if the dataset moved).
 
-- [ ] **Step 12.2: Execute the import headlessly** via `mcp__UnityMCP__execute_code` (activate the `scripting_ext` tool group via `manage_tools` if needed):
+- [ ] **Step 12.2: Execute the imports headlessly** via `mcp__UnityMCP__execute_code` (activate the `scripting_ext` tool group via `manage_tools` if needed). Task 11 established that `Angers2.xml` has roads/bridges/vegetation but NO buildings/water/rail sections; `Angers5.xml` is known to contain BATIMENTS. Import BOTH and build a scene per file — the richer one (buildings present) is the primary demo:
 
 ```csharp
-var result = Carto.Unity.Editor.CartoImportPipeline.Import(
-    @"C:\Users\bencu\unityProjects\snake-unity-kit\Carto\carte angers\Angers2.xml",
-    @"C:\Users\bencu\unityProjects\snake-unity-kit\Carto\carte angers\angersZUB.geo",
-    @"C:\Users\bencu\unityProjects\snake-unity-kit\Carto\carte angers\angersZUB.tif");
-var scenePath = Carto.Unity.Editor.CartoSceneBuilder.BuildScene(result);
-UnityEngine.Debug.Log("[Carto] demo scene: " + scenePath + ", bytes: " + result.BytesAssetPath);
+var dir = @"C:\Users\bencu\unityProjects\snake-unity-kit\Carto\carte angers\";
+var r2 = Carto.Unity.Editor.CartoImportPipeline.Import(dir + "Angers2.xml", dir + "angersZUB.geo", dir + "angersZUB.tif");
+var s2 = Carto.Unity.Editor.CartoSceneBuilder.BuildScene(r2);
+var r5 = Carto.Unity.Editor.CartoImportPipeline.Import(dir + "Angers5.xml", dir + "angersZUB.geo", dir + "angersZUB.tif");
+var s5 = Carto.Unity.Editor.CartoSceneBuilder.BuildScene(r5);
+UnityEngine.Debug.Log("[Carto] scenes: " + s2 + " | " + s5 +
+    " — A2 roads " + r2.Data.Roads.Count + "/veg " + r2.Data.Vegetation.Count + "/bld " + r2.Data.Buildings.Count +
+    "; A5 roads " + r5.Data.Roads.Count + "/veg " + r5.Data.Vegetation.Count + "/bld " + r5.Data.Buildings.Count);
+return "done";
 ```
 
-Expected console: the `[Carto] Imported Angers2 in …` summary line with non-zero roads/vegetation counts, then `[Carto] demo scene: Assets/Scenes/CartoAngers2.unity`. Raster texture import (12825×12544 tif) may take a minute.
+Expected console: two `[Carto] Imported …` summary lines, then the scenes line. The scene saved LAST (CartoAngers5) is the open one — screenshot that if it has roads+vegetation+buildings; otherwise reopen CartoAngers2. Raster texture import (12825×12544 tif) may take a minute on the first import only.
 
 - [ ] **Step 12.3: Read the console** (`read_console`) — no errors; note the summary numbers for the final report.
 
