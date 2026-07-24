@@ -1025,12 +1025,79 @@ git commit -m "feat(carto): streaming PLANI_TYPE3 parser — all 8 sections, rin
 
 ---
 
-### Task 5: PlaniXmlReader — leniency pinning tests
+### Task 5: PlaniXmlReader — leniency pinning tests + coordinate-warning hardening
 
 **Files:**
 - Create: `Assets/Tests/EditMode/Carto/CartoLeniencyTests.cs`
+- Modify: `Assets/Carto/Core/PlaniXmlReader.cs` (Step 5.0 — from Task 4's quality review)
 
-These pin the leniency contract. Most should pass immediately (the behavior was built in Task 4); any red test is a parser bug — fix `PlaniXmlReader.cs`, don't weaken the test.
+These pin the leniency contract. Most should pass immediately (the behavior was built in Task 4); any red test is a parser bug — fix `PlaniXmlReader.cs`, don't weaken the test. Step 5.0 closes the one real gap Task 4's review found: an unparseable POINT coordinate silently became a (0,0) vertex with no diagnostic.
+
+- [ ] **Step 5.0: Parser hardening — warn on missing/unparseable POINT coordinates.** In `PlaniXmlReader.cs`:
+
+a) Change the four linear call sites in the main switch to pass warnings + label:
+
+```csharp
+                        case "ROUTE": map.Roads.Add(ReadLine(r, ReadRoadInfo, map.Warnings, "ROUTE")); break;
+                        case "PONT_LINEAIRE": map.Bridges.Add(ReadLine(r, ReadBridgeInfo, map.Warnings, "PONT_LINEAIRE")); break;
+                        case "FLEUVE_LINEAIRE": map.RiverLines.Add(ReadLine(r, ReadRiverInfo, map.Warnings, "FLEUVE_LINEAIRE")); break;
+                        case "VOIE_FERREE": map.Railways.Add(ReadLine(r, ReadRailwayInfo, map.Warnings, "VOIE_FERREE")); break;
+```
+
+b) Change `ReadLine` and `ReadRing` signatures and point reads:
+
+```csharp
+        static GeoLine<T> ReadLine<T>(XmlReader r, Func<XmlReader, T> readInfo, List<string> warnings, string label)
+        {
+            using (var sub = r.ReadSubtree())
+            {
+                sub.Read(); // position on the feature element itself
+                var line = new GeoLine<T> { Info = readInfo(sub) };
+                var pts = new List<GeoPoint>();
+                while (sub.Read())
+                    if (sub.NodeType == XmlNodeType.Element && sub.Name == "POINT")
+                        pts.Add(ReadPoint(sub, warnings, label));
+                line.Points = pts.ToArray();
+                return line;
+            }
+        }
+```
+
+```csharp
+        static GeoPoint[] ReadRing(XmlReader contourElement, List<string> warnings, string label)
+        {
+            var pts = new List<GeoPoint>();
+            using (var sub = contourElement.ReadSubtree())
+            {
+                while (sub.Read())
+                    if (sub.NodeType == XmlNodeType.Element && sub.Name == "POINT")
+                        pts.Add(ReadPoint(sub, warnings, label));
+            }
+            return pts.ToArray();
+        }
+```
+
+In `AddArea`, the ring read becomes `NormalizeRing(ReadRing(sub, warnings, label))`.
+
+c) Add the two helpers next to the attribute readers (corner elements keep plain `DA` — real files always carry them and a zeroed corner is visible immediately):
+
+```csharp
+        const int MaxWarnings = 100; // cap pathological files; real producers are clean
+
+        static GeoPoint ReadPoint(XmlReader r, List<string> warnings, string label) =>
+            new GeoPoint(DCoord(r, "X", warnings, label), DCoord(r, "Y", warnings, label));
+
+        static double DCoord(XmlReader r, string name, List<string> warnings, string label)
+        {
+            var s = r.GetAttribute(name);
+            if (s != null && double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
+                return v;
+            if (warnings.Count < MaxWarnings)
+                warnings.Add(label + ": POINT with missing/unparseable " + name +
+                             (s == null ? "" : "=\"" + s + "\"") + " — 0 used");
+            return 0.0;
+        }
+```
 
 - [ ] **Step 5.1: Write the tests:**
 
@@ -1112,17 +1179,64 @@ namespace Snake2D.Tests.Carto
                 System.Threading.Thread.CurrentThread.CurrentCulture = previous;
             }
         }
+
+        [Test]
+        public void SelfClosingEmptySections_YieldEmptyLists_NoWarning()
+        {
+            // Real exports end with e.g. <PLANS_EAU NbElements="0" /> — the dominant shape in file tails.
+            var map = Parse("<PLANS_EAU NbElements=\"0\" /><CONSTRUCTIONS NbElements=\"0\" /><BATIMENTS NbElements=\"0\" />");
+            Assert.AreEqual(0, map.Water.Count);
+            Assert.AreEqual(0, map.Constructions.Count);
+            Assert.AreEqual(0, map.Buildings.Count);
+            Assert.AreEqual(0, map.Warnings.Count);
+        }
+
+        [Test]
+        public void MultipleHoles_AllCaptured()
+        {
+            var map = Parse("<VEGETATIONS NbElements=\"1\"><VEGETATION SURFACE=\"1\">" +
+                "<CONTOUR><POINTS><POINT X=\"0\" Y=\"0\" /><POINT X=\"1\" Y=\"0\" /><POINT X=\"1\" Y=\"1\" /><POINT X=\"0\" Y=\"1\" /></POINTS></CONTOUR>" +
+                "<ZONES_EXCLUES>" +
+                "<ZONE_EXCLUE><CONTOUR><POINTS><POINT X=\"0.1\" Y=\"0.1\" /><POINT X=\"0.2\" Y=\"0.1\" /><POINT X=\"0.15\" Y=\"0.2\" /></POINTS></CONTOUR></ZONE_EXCLUE>" +
+                "<ZONE_EXCLUE><CONTOUR><POINTS><POINT X=\"0.5\" Y=\"0.5\" /><POINT X=\"0.6\" Y=\"0.5\" /><POINT X=\"0.55\" Y=\"0.6\" /></POINTS></CONTOUR></ZONE_EXCLUE>" +
+                "</ZONES_EXCLUES></VEGETATION></VEGETATIONS>");
+            Assert.AreEqual(1, map.Vegetation.Count);
+            Assert.AreEqual(2, map.Vegetation[0].Holes.Count);
+            Assert.AreEqual(4, map.Vegetation[0].Outer.Length);
+        }
+
+        [Test]
+        public void DegenerateOuterWithHoles_FeatureSkipped()
+        {
+            var map = Parse("<PLANS_EAU NbElements=\"1\"><PLAN_EAU>" +
+                "<CONTOUR><POINTS><POINT X=\"0\" Y=\"0\" /><POINT X=\"1\" Y=\"1\" /></POINTS></CONTOUR>" +
+                "<ZONES_EXCLUES><ZONE_EXCLUE><CONTOUR><POINTS><POINT X=\"0.1\" Y=\"0.1\" /><POINT X=\"0.2\" Y=\"0.1\" /><POINT X=\"0.15\" Y=\"0.2\" /></POINTS></CONTOUR></ZONE_EXCLUE></ZONES_EXCLUES>" +
+                "</PLAN_EAU></PLANS_EAU>");
+            Assert.AreEqual(0, map.Water.Count);
+            Assert.That(map.Warnings, Has.Some.Contains("PLAN_EAU"));
+        }
+
+        [Test]
+        public void UnparseableCoordinate_WarnsAndDefaultsToZero()
+        {
+            var map = Parse("<ROUTES NbElements=\"1\"><ROUTE>" +
+                "<POINTS><POINT X=\"abc\" Y=\"0.5\" /><POINT X=\"0.6\" Y=\"0.6\" /></POINTS></ROUTE></ROUTES>");
+            Assert.AreEqual(1, map.Roads.Count);
+            Assert.AreEqual(0.0, map.Roads[0].Points[0].Lon, 1e-12);
+            Assert.AreEqual(0.5, map.Roads[0].Points[0].Lat, 1e-12);
+            Assert.That(map.Warnings, Has.Some.Contains("unparseable"));
+        }
     }
 }
 ```
 
-- [ ] **Step 5.2: Run tests** — `test_filter: "Snake2D.Tests.Carto.CartoLeniencyTests"`. Expected: 6/6 pass. If any fail, fix the parser (leniency is the contract).
+- [ ] **Step 5.2: Run tests** — full EditMode assembly. Expected: 10/10 CartoLeniencyTests pass and the whole suite is 30/30 (20 prior + 10 new). TDD note: `UnparseableCoordinate_WarnsAndDefaultsToZero` is the failing-first test for Step 5.0 — write the test file, see that one fail (the rest pass), then apply Step 5.0 and see 30/30.
 
 - [ ] **Step 5.3: Commit** (SNAKE):
 
 ```bash
-git add Assets/Tests/EditMode/Carto/CartoLeniencyTests.cs
-git commit -m "test(carto): pin parser leniency contract — defaults, warnings, culture, degenerate rings"
+git add Assets/Carto/Core/PlaniXmlReader.cs Assets/Tests/EditMode/Carto/CartoLeniencyTests.cs Assets/Tests/EditMode/Carto/CartoLeniencyTests.cs.meta
+git commit -m "test(carto): pin parser leniency contract + warn on unparseable POINT coordinates"
 ```
 
 ---
