@@ -19,6 +19,7 @@ A Claude Code plugin for Unity development. Philosophy: **integrate the mature M
 | `unity-dots-migration` | GameObject→ECS conversion: the gate, migration order, hybrid view bridges, and the 2D-rendering / SubScene-stripping traps |
 | `unity-netcode-entities` | Netcode for Entities: worlds, tick rates, ghosts, prediction, input commands, dedicated servers, and the thin-client/latency-sim test loop |
 | `unity-geo-maps` | Real-world map data as game worlds: provider licensing (Google/Mapbox walls, OSM/ODbL, DEMs), offline bake pipeline, projections, multiplayer map determinism |
+| `unity-carto-maps` | PLANI_TYPE3 "carto"/SWORD-family GIS maps → baked Unity assets + load-time 2D map rendering (C# template: Carto.Core/Runtime/Editor) |
 | `unity-packages` | Official registry via `manage_packages`, OpenUPM scoped registries, git-URL packages, vetting |
 | `unity-build` | Player builds via `manage_build`, with headless CLI fallback |
 | `unity-ci` | Unity Test Framework headless: `-batchmode -runTests` flag lore, exit codes, license/lockfile pitfalls, GameCI wiring |

@@ -1,8 +1,8 @@
 {
   "name": "unity-kit",
   "displayName": "Unity Kit",
-  "version": "0.7.0",
-  "description": "Unity development toolkit for Claude Code: create projects from a prompt (unity-init), launch the editor and wait for MCP (unity-launch), verify work (unity-verify), write correct Unity C# (unity-csharp), drive scenes/prefabs (unity-scene), generate assets in Unity or Blender (unity-assets), build players (unity-build), run tests headless (unity-ci), and orchestrate agentic gamedev workflows — multi-lens reviews and playtest sweeps with subagents (agentic-workflows). Built around CoplayDev's MCP for Unity and ahujasid's blender-mcp.",
+  "version": "0.8.0",
+  "description": "Unity development toolkit for Claude Code: create projects from a prompt (unity-init), launch the editor and wait for MCP (unity-launch), verify work (unity-verify), write correct Unity C# (unity-csharp), drive scenes/prefabs (unity-scene), generate assets in Unity or Blender (unity-assets), build players (unity-build), run tests headless (unity-ci), integrate real-world PLANI_TYPE3/carto GIS maps (unity-carto-maps), and orchestrate agentic gamedev workflows — multi-lens reviews and playtest sweeps with subagents (agentic-workflows). Built around CoplayDev's MCP for Unity and ahujasid's blender-mcp.",
   "author": {
     "name": "bencu",
     "email": "bencurlier@gmail.com"
@@ -10,5 +10,5 @@
   "homepage": "https://github.com/Benjamin-Curlier/unity-kit",
   "repository": "https://github.com/Benjamin-Curlier/unity-kit",
   "license": "MIT",
-  "keywords": ["unity", "gamedev", "mcp", "playtest", "agentic", "workflow", "blender", "ci"]
+  "keywords": ["unity", "gamedev", "mcp", "playtest", "agentic", "workflow", "blender", "ci", "gis", "maps", "carto"]
 }

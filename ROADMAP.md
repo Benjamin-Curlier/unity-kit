@@ -85,3 +85,8 @@ Grouped by root cause. All items S (small) unless tagged.
 - **"72 agents proves dedup never fires"** — mechanism confirmed, empirical attribution overstated; fix retained on the code evidence alone.
 - **"Every continuous-game session hits the 3-no-change abort"** — downgraded to structural bias: the schema coercion is confirmed, the universal-failure outcome was not verified.
 - **Research-file circularity is structurally undetectable** — downgraded: a partial execution oracle already exists (gamedev-review ran end-to-end in snake2d); remaining gap is playtest-sweep, moved to Tier 3.
+---
+
+**v0.8.0 (branch `feat/carto-maps`):** unity-carto-maps — PLANI_TYPE3/`.geo` map
+integration (skill + format reference + Carto C# template + Angers demo import:
+87k features, 55/55 tests, live scene proof). Ready to tag/push after review.
