@@ -19,7 +19,7 @@ absolute path).
 Three-assembly C# importer — install per the template README:
 - `Carto.Core` (engine-free): `PlaniXmlReader` (streaming, lenient),
   `GeoReference`, `LocalProjection` (tangent-plane equirectangular, center =
-  LIM midpoints, ~0.11 % edge error at Angers extent), `CartoMapData.Bake` +
+  LIM midpoints, ~0.16 % edge error at Angers extent), `CartoMapData.Bake` +
   CMAP binary, `PolygonTriangulator` (holes via bridging).
 - `Carto.Unity.Runtime`: `CartoMapAsset.Load(TextAsset)`; `CartoMapRenderer`
   builds layer meshes **at load** (children DontSave — a scene with serialized

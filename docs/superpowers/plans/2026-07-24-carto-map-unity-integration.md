@@ -368,11 +368,14 @@ namespace Carto.Core
 {
     /// <summary>
     /// Tangent-plane equirectangular projection centered on (CenterLon, CenterLat).
-    /// x = east meters, y = north meters. Deterministic double math, float32 output.
-    /// Error bound: E–W scale error grows with |lat − CenterLat|; at the Angers extent
-    /// (±0.084° of latitude) it is ≈0.11 % (~10 m at 9 km from center). All layers and
-    /// the raster go through the SAME instance, so relative registration is exact.
-    /// Swap this class behind the same API if survey-grade fidelity is ever needed.
+    /// x = east meters, y = north meters. Double math, rounded to float32 output.
+    /// E–W scale/shape distortion grows with |lat − CenterLat| (rel. error ≈ tan(lat0)·Δlat):
+    /// at the Angers extent (±0.084° of latitude) that is ≈0.16 % (~15 m at the far corners).
+    /// Absolute agreement with UTM ground truth is looser (spherical model) — but features
+    /// and raster corners share the same center, so relative registration stays exact.
+    /// Deterministic only per single offline bake: Math.Cos is not bit-identical across
+    /// platforms — never run this per-client in a lockstep sim. Swap this class behind the
+    /// same API if survey-grade fidelity is ever needed.
     /// </summary>
     public sealed class LocalProjection
     {
@@ -2744,7 +2747,7 @@ absolute path).
 Three-assembly C# importer — install per the template README:
 - `Carto.Core` (engine-free): `PlaniXmlReader` (streaming, lenient),
   `GeoReference`, `LocalProjection` (tangent-plane equirectangular, center =
-  LIM midpoints, ~0.11 % edge error at Angers extent), `CartoMapData.Bake` +
+  LIM midpoints, ~0.16 % edge error at Angers extent), `CartoMapData.Bake` +
   CMAP binary, `PolygonTriangulator` (holes via bridging).
 - `Carto.Unity.Runtime`: `CartoMapAsset.Load(TextAsset)`; `CartoMapRenderer`
   builds layer meshes **at load** (children DontSave — a scene with serialized
@@ -2835,9 +2838,10 @@ import `.gif` — use the `.tif` sibling; imported at max texture size 8192.
 Tangent-plane equirectangular centered on the map's LIM midpoints (lon0, lat0):
 `x = (lon − lon0) · cos(lat0·π/180) · k`, `y = (lat − lat0) · k`, with
 `k = π/180 × 6 378 137 m` (WGS84 semi-major axis). Deterministic double math,
-float32 local-meter output; ~0.11 % E–W scale error at the map edge at Angers
-extent. Features AND raster corners go through the same instance, so relative
-layer registration is exact regardless of absolute error.
+float32 local-meter output; ~0.16 % E–W scale/shape distortion at the map edge
+at Angers extent (rel. error ≈ tan(lat0)·Δlat). Features AND raster corners go
+through the same instance, so relative layer registration is exact regardless
+of absolute error.
 
 ## Upstream pipeline (provenance)
 BD TOPO | VMAP1 | OSM | MGCP shapefiles → QGIS scripts (`Convert_*2MP.py`) →

@@ -52,9 +52,10 @@ import `.gif` — use the `.tif` sibling; imported at max texture size 8192.
 Tangent-plane equirectangular centered on the map's LIM midpoints (lon0, lat0):
 `x = (lon − lon0) · cos(lat0·π/180) · k`, `y = (lat − lat0) · k`, with
 `k = π/180 × 6 378 137 m` (WGS84 semi-major axis). Deterministic double math,
-float32 local-meter output; ~0.11 % E–W scale error at the map edge at Angers
-extent. Features AND raster corners go through the same instance, so relative
-layer registration is exact regardless of absolute error.
+float32 local-meter output; ~0.16 % E–W scale/shape distortion at the map edge
+at Angers extent (rel. error ≈ tan(lat0)·Δlat). Features AND raster corners go
+through the same instance, so relative layer registration is exact regardless
+of absolute error.
 
 ## Upstream pipeline (provenance)
 BD TOPO | VMAP1 | OSM | MGCP shapefiles → QGIS scripts (`Convert_*2MP.py`) →

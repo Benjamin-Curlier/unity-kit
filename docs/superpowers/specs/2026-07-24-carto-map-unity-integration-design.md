@@ -107,9 +107,11 @@ The skill lists each script's role; unity-kit does not reimplement them.
 - `LocalProjection` — WGS84 → local meters. Tangent-plane equirectangular centered on the map
   center `(lon0, lat0)`:
   `x = (lon − lon0)·cos(lat0)·k`, `y = (lat − lat0)·k`, `k = π/180 · R`, `R = 6378137` (WGS84
-  semi-major). Deterministic double math, output truncated to float32. Documented error bound: at
-  Angers extent (~19 km N–S, ~±0.084° lat around center) the E–W scale error at the map edge is
-  ≈ 0.11 % (≈ 10 m at 9 km) — acceptable for v1 rendering/gameplay; the class is small and
+  semi-major). Deterministic double math per single offline bake (Math.Cos is not bit-identical
+  across platforms — never run per-client in a lockstep sim), output rounded to float32.
+  Documented error bound: at Angers extent (~±0.084° lat around center) the E–W scale/shape
+  distortion at the map edge is ≈ 0.16 % (~15 m at the far corners; rel. error ≈ tan(lat0)·Δlat)
+  — acceptable for v1 rendering/gameplay; the class is small and
   self-contained so a true transverse-Mercator implementation can replace it later behind the same
   API if survey-grade fidelity is ever needed. Same projection instance is used for map features
   AND raster corners, so layers stay mutually registered regardless of absolute error.
